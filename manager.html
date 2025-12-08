@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AllDebrid Manager</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div class="container">
@@ -13,13 +15,17 @@
       <div class="header-top">
         <h1>AllDebrid Manager</h1>
         <div class="header-actions">
-           <button id="refresh-btn" title="Recargar lista">🔄</button>
-           <button id="settings-btn" title="Configuración">⚙️</button>
+          <button id="refresh-btn" title="Recargar lista">🔄</button>
+          <button id="settings-btn" title="Configuración">⚙️</button>
         </div>
       </div>
-      
+
       <div class="search-bar-container">
         <input type="text" id="search-input" placeholder="🔍 Buscar archivo..." class="search-input" disabled>
+      </div>
+      <div class="tabs">
+        <button id="tab-completed" class="tab-item active">✅ Completados</button>
+        <button id="tab-downloading" class="tab-item">⬇️ Descargando</button>
       </div>
     </header>
 
@@ -27,11 +33,11 @@
       <div class="card">
         <h3>Conectar Cuenta</h3>
         <p class="info-text">Introduce tu API Key para gestionar tus ficheros.</p>
-        
+
         <input type="text" id="api-key-input" placeholder="Pegar API Key aquí..." autocomplete="off" />
-        
+
         <button id="save-key-btn" class="primary-btn">Validar y Guardar</button>
-        
+
         <div id="config-feedback" class="feedback-msg"></div>
 
         <p class="help"><small>Obtenla en tu perfil de AllDebrid > API Key.</small></p>
@@ -45,16 +51,21 @@
       </div>
 
       <div id="loading" class="hidden">Cargando contenido...</div>
-      
+
       <div id="no-results" class="hidden" style="text-align:center; padding:20px; color:#777">
         No se encontraron coincidencias.
       </div>
-
-      <ul id="file-list"></ul>
       <div id="error-msg" class="error hidden"></div>
+
+      <!-- LISTA DESCARGANDO -->
+      <ul id="list-downloading" class="file-list-container"></ul>
+
+      <!-- LISTA COMPLETADOS -->
+      <ul id="list-completed" class="file-list-container hidden"></ul>
     </div>
   </div>
 
   <script type="module" src="manager.js"></script>
 </body>
+
 </html>

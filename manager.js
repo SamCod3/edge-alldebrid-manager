@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveKeyBtn = document.getElementById('save-key-btn');
   const configFeedback = document.getElementById('config-feedback');
   const searchInput = document.getElementById('search-input');
-  const fileList = document.getElementById('file-list');
+  const fileListActive = document.getElementById('list-downloading');
+  const fileListCompleted = document.getElementById('list-completed');
+  const tabDownloading = document.getElementById('tab-downloading');
+  const tabCompleted = document.getElementById('tab-completed');
+
   const loadingDiv = document.getElementById('loading');
   const errorMsg = document.getElementById('error-msg');
   const noResultsDiv = document.getElementById('no-results');
@@ -19,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const filesCount = document.getElementById('files-count');
 
   let currentApiKey = '';
+  let activeTab = 'completed'; // 'downloading' | 'completed'
 
   // --- Inicialización ---
   init();
@@ -32,15 +37,43 @@ document.addEventListener('DOMContentLoaded', () => {
         showConfigView();
       }
     });
+
+    // Tab Listeners
+    tabDownloading.addEventListener('click', () => switchTab('downloading'));
+    tabCompleted.addEventListener('click', () => switchTab('completed'));
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+
+    // UI Updates
+    if (tab === 'downloading') {
+      tabDownloading.classList.add('active');
+      tabCompleted.classList.remove('active');
+      fileListActive.classList.remove('hidden');
+      fileListCompleted.classList.add('hidden');
+    } else {
+      tabDownloading.classList.remove('active');
+      tabCompleted.classList.add('active');
+      fileListActive.classList.add('hidden');
+      fileListCompleted.classList.remove('hidden');
+    }
+
+    // Refresh Filter (Search)
+    triggerSearch();
   }
 
   // --- BÚSQUEDA ---
-  searchInput.addEventListener('input', (e) => {
-    const term = e.target.value.toLowerCase();
-    const items = document.querySelectorAll('.file-item');
+  searchInput.addEventListener('input', triggerSearch);
+
+  function triggerSearch() {
+    const term = searchInput.value.toLowerCase();
+    const currentList = activeTab === 'downloading' ? fileListActive : fileListCompleted;
+    const items = currentList.querySelectorAll('.file-item');
+
     let visibleCount = 0;
     items.forEach(item => {
-      const name = item.querySelector('.file-name').textContent.toLowerCase();
+      const name = item.dataset.name.toLowerCase();
       if (name.includes(term)) {
         item.style.display = 'block';
         visibleCount++;
@@ -48,9 +81,11 @@ document.addEventListener('DOMContentLoaded', () => {
         item.style.display = 'none';
       }
     });
+
+    // Only show no results if we have items but none match, or if empty list handled in render
     if (visibleCount === 0 && items.length > 0) noResultsDiv.classList.remove('hidden');
     else noResultsDiv.classList.add('hidden');
-  });
+  }
 
   // --- EVENTOS GLOBALES ---
   saveKeyBtn.addEventListener('click', async () => {
@@ -112,7 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- API FICHEROS ---
   async function fetchFiles(apiKey) {
-    fileList.innerHTML = '';
+    fileListActive.innerHTML = '';
+    fileListCompleted.innerHTML = '';
     loadingDiv.classList.remove('hidden');
     errorMsg.classList.add('hidden');
     noResultsDiv.classList.add('hidden');
@@ -122,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await AllDebridAPI.getMagnets(apiKey);
       loadingDiv.classList.add('hidden');
       if (data.status === 'success') {
-        renderFiles(data.data.magnets);
+        processAndRender(data.data.magnets);
       } else {
         if (data.error && data.error.code.includes('AUTH')) showConfigView();
         throw new Error(data.error ? data.error.message : 'Error desconocido');
@@ -134,51 +170,109 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderFiles(magnets) {
+  function processAndRender(magnets) {
     if (!magnets || magnets.length === 0) {
-      fileList.innerHTML = '<li style="text-align:center; padding:40px; color:#777">No hay ficheros.</li>';
-      filesCount.textContent = '0'; return;
+      // Show empty state in both
+      fileListActive.innerHTML = '<li style="text-align:center; padding:40px; color:#555">No hay descargas activas.</li>';
+      fileListCompleted.innerHTML = '<li style="text-align:center; padding:40px; color:#555">No hay historial.</li>';
+      filesCount.textContent = '0';
+      return;
     }
+
     filesCount.textContent = `${magnets.length}`;
 
-    magnets.forEach(magnet => {
+    // Filter
+    const activeMagnets = magnets.filter(m => m.statusCode !== 4);
+    const completedMagnets = magnets.filter(m => m.statusCode === 4);
+
+    renderList(activeMagnets, fileListActive, 'active');
+    renderList(completedMagnets, fileListCompleted, 'completed');
+
+    // Trigger initial visibility
+    switchTab(activeTab);
+  }
+
+  function renderList(items, container, type) {
+    if (items.length === 0) {
+      container.innerHTML = '<li style="text-align:center; padding:40px; color:#555">Nada por aquí.</li>';
+      return;
+    }
+
+    items.forEach(magnet => {
       const li = document.createElement('li');
       li.className = 'file-item';
+      li.dataset.name = magnet.filename; // Search helper
 
       const isReady = magnet.statusCode === 4;
-      const statusClass = isReady ? 'status-ready' : 'status-downloading';
-      const statusText = isReady ? 'Completado' : 'Descargando';
 
+      // Basic Row
       const mainRow = document.createElement('div');
       mainRow.className = 'file-row-main';
-      mainRow.innerHTML = `
-        <div class="file-info">
-            <span class="file-name" title="${isReady ? 'Clic para ver enlaces' : 'No disponible'}">${magnet.filename}</span>
-            <span class="file-meta">${Utils.formatBytes(magnet.size)} • ${new Date(magnet.uploadDate * 1000).toLocaleDateString()}</span>
-        </div>
-        <div class="file-actions">
-           <span class="status-badge ${statusClass}">${statusText}</span>
-        </div>
-      `;
 
-      // Toggle Switch
-      const nameSpan = mainRow.querySelector('.file-name');
-      if (isReady && magnet.links && magnet.links.length > 0) {
-        nameSpan.onclick = () => toggleDetails(li, magnet.links);
+      // Determine Content based on Type
+      if (type === 'active') {
+        const perc = (magnet.size > 0) ? ((magnet.downloaded / magnet.size) * 100).toFixed(1) : 0;
+        const speed = magnet.downloadSpeed ? Utils.formatBytes(magnet.downloadSpeed) + '/s' : '0 B/s';
+        const seeds = magnet.seeders ? magnet.seeders : 0;
+
+        mainRow.innerHTML = `
+          <div class="file-info">
+             <span class="file-name" style="cursor:default">${magnet.filename}</span>
+             
+             <!-- Progress Block -->
+             <div class="progress-section">
+                <div class="progress-header">
+                   <span>${Utils.formatBytes(magnet.downloaded)} / ${Utils.formatBytes(magnet.size)}</span>
+                   <span>${perc}%</span>
+                </div>
+                <div class="progress-track">
+                   <div class="progress-fill" style="width: ${perc}%"></div>
+                </div>
+                <div class="progress-stats">
+                   <span class="stat-chip" title="Velocidad">🚀 ${speed}</span>
+                   <span class="stat-chip" title="Semillas">🌱 ${seeds}</span>
+                   <span class="stat-chip" title="Estado">${magnet.status}</span>
+                </div>
+             </div>
+          </div>
+          <div class="file-actions">
+             <button class="btn-action btn-restart" title="Reiniciar">🔄</button>
+             <button class="btn-action btn-delete" title="Eliminar">🗑️</button>
+          </div>
+        `;
       } else {
-        nameSpan.classList.add('disabled');
+        // Completed View
+        mainRow.innerHTML = `
+          <div class="file-info">
+              <span class="file-name" title="Clic para ver enlaces">${magnet.filename}</span>
+              <span class="file-meta">${Utils.formatBytes(magnet.size)} • ${new Date(magnet.uploadDate * 1000).toLocaleDateString()}</span>
+          </div>
+          <div class="file-actions">
+             <span class="status-badge status-ready">Completado</span>
+             <button class="btn-action btn-delete" title="Eliminar">🗑️</button>
+          </div>
+        `;
       }
 
-      // Borrar
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-action btn-delete';
-      deleteBtn.innerHTML = '🗑️';
-      deleteBtn.title = 'Eliminar';
+      // Logic
+      const fileInfoBlock = mainRow.querySelector('.file-info');
+      const deleteBtn = mainRow.querySelector('.btn-delete');
+
       deleteBtn.onclick = (e) => { e.stopPropagation(); deleteMagnet(magnet.id); };
 
-      mainRow.querySelector('.file-actions').appendChild(deleteBtn);
+      if (type === 'active') {
+        const restartBtn = mainRow.querySelector('.btn-restart');
+        restartBtn.onclick = (e) => { e.stopPropagation(); restartMagnet(magnet.id); };
+      }
+
+      if (isReady && magnet.links && magnet.links.length > 0) {
+        // Only clickable in completed view effectively
+        const nameSpan = mainRow.querySelector('.file-name');
+        nameSpan.onclick = () => toggleDetails(li, magnet.links);
+      }
+
       li.appendChild(mainRow);
-      fileList.appendChild(li);
+      container.appendChild(li);
     });
   }
 
@@ -248,6 +342,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       box.appendChild(row);
     });
+  }
+
+  async function restartMagnet(id) {
+    if (!confirm('¿Reiniciar descarga?')) return;
+    try {
+      const data = await AllDebridAPI.restartMagnet(currentApiKey, id);
+      if (data.status === 'success') {
+        // Force switch to active tab to see progress
+        activeTab = 'downloading';
+        switchTab('downloading'); // Update UI active state
+        fetchFiles(currentApiKey);
+      } else {
+        alert((data.error && data.error.message) ? data.error.message : 'Error al reiniciar');
+      }
+    } catch (e) { console.error(e); alert('Error de red'); }
   }
 
   async function deleteMagnet(id) {

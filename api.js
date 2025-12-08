@@ -34,6 +34,11 @@ export const AllDebridAPI = {
         return await response.json();
     },
 
+    async restartMagnet(apiKey, id) {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/magnet/restart?agent=${CONFIG.AGENT_NAME}&apikey=${apiKey}&id=${id}`);
+        return await response.json();
+    },
+
     async deleteMagnet(apiKey, id) {
         const response = await fetch(`${CONFIG.API_BASE_URL}/magnet/delete?agent=${CONFIG.AGENT_NAME}&apikey=${apiKey}&id=${id}`);
         return await response.json();

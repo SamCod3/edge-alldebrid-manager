@@ -142,7 +142,10 @@ async function uploadTorrentFile(fileUrl) {
 
   } catch (e) {
     console.error(e);
-    notify("❌ Error de Subida", "No se pudo procesar el archivo .torrent. Posiblemente requiere login o captcha.");
+    // FALLBACK: Si falla la descarga interna (CORS, Auth, etc), lo bajamos normal al disco
+    notify("⚠️ Fallo en subida automática", "Intentando descargar localmente...");
+    allowedUrls.add(fileUrl);
+    chrome.downloads.download({ url: fileUrl });
   }
 }
 
