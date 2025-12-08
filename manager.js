@@ -1,11 +1,11 @@
 import { Utils } from './utils.js';
 import { AllDebridAPI, DashboardAPI } from './api.js';
 import { JackettAPI } from './jackett.js';
+import { TrackerDropdown } from './tracker_dropdown.js';
+
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ... (existing DOM elements)
-
-  // NEW DOM ELEMENTS
+  // --- DOM ELEMENTS ---
   const kmList = document.getElementById('km-list');
   const kmLoading = document.getElementById('km-loading');
   const kmLoginReq = document.getElementById('km-login-req');
@@ -23,14 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchView = document.getElementById('search-view');
   const jSearchInput = document.getElementById('j-search-input');
   const jSearchBtn = document.getElementById('j-search-btn');
-  // Custom dropdown elements
-  const trackerDropdownBtn = document.getElementById('tracker-dropdown-btn');
-  const trackerDropdownList = document.getElementById('tracker-dropdown-list');
   const jResults = document.getElementById('j-results');
   const jLoading = document.getElementById('j-loading');
   const tabSearch = document.getElementById('tab-search');
 
-  // ... (rest of vars)
   const configView = document.getElementById('config-view');
   const filesView = document.getElementById('files-view');
   const apiKeyInput = document.getElementById('api-key-input');
@@ -53,14 +49,22 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentApiKey = '';
   // TAB STATE: 'downloading' | 'completed' | 'search'
   let activeTab = 'completed';
+  let lastSearchTerm = '';
 
   let jackettConfig = { url: '', key: '' };
+
+  let trackerDropdown;
 
   // --- Inicialización ---
   init();
 
   function init() {
+    // ... (keep init content)
+    // Instantiate Custom Dropdown
+    trackerDropdown = new TrackerDropdown('tracker-dropdown-btn', 'tracker-dropdown-list');
+
     chrome.storage.local.get(['alldebrid_apikey', 'alldebrid_username', 'jackett_url', 'jackett_apikey'], (result) => {
+      // ... (keep existing storage logic)
       // Load Jackett Config
       if (result.jackett_url) {
         jackettConfig.url = result.jackett_url;
@@ -85,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    // ... (keep listeners)
     // Tab Listeners
     tabDownloading.addEventListener('click', () => switchTab('downloading'));
     tabCompleted.addEventListener('click', () => switchTab('completed'));
@@ -94,8 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     saveJackettBtn.addEventListener('click', saveJackettConfig);
     jSearchBtn.addEventListener('click', executeJackettSearch);
     jSearchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeJackettSearch(); });
-
-    setupTrackerDropdown();
   }
 
   // KM Listeners
@@ -104,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (configBackBtn) configBackBtn.addEventListener('click', () => showFilesView(currentApiKey));
 
   async function handleCreateKey() {
+    // ... (keep handleCreateKey)
     const name = kmNewName.value.trim();
     if (!name) return;
     const originalText = kmCreateBtn.textContent;
@@ -121,6 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function switchTab(tab) {
+    if (activeTab === 'completed' && tab !== 'completed') {
+      lastSearchTerm = searchInput.value;
+    }
+
     activeTab = tab;
 
     // Reset Views
@@ -146,10 +154,16 @@ document.addEventListener('DOMContentLoaded', () => {
         tabDownloading.classList.add('active');
         fileListActive.classList.remove('hidden');
         fileListCompleted.classList.add('hidden');
+        searchInput.value = ''; // Clear to show placeholder
+        searchInput.disabled = true; // Disable local search for downloading
+        searchInput.placeholder = "Filtro desactivado en Descargas";
       } else {
         tabCompleted.classList.add('active');
         fileListActive.classList.add('hidden');
         fileListCompleted.classList.remove('hidden');
+        searchInput.disabled = false; // Enable for completed
+        searchInput.placeholder = "🔍 Filtrar completados...";
+        if (lastSearchTerm) searchInput.value = lastSearchTerm; // Restore
       }
       triggerSearch(); // Local filter
     }
@@ -169,70 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function setupTrackerDropdown() {
-    // Toggle dropdown
-    trackerDropdownBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      trackerDropdownList.classList.toggle('hidden');
-    });
-
-    // Close when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!trackerDropdownBtn.contains(e.target) && !trackerDropdownList.contains(e.target)) {
-        trackerDropdownList.classList.add('hidden');
-      }
-    });
-  }
-
   async function loadJackettTrackers() {
     if (!jackettConfig.url || !jackettConfig.key) return;
 
-    trackerDropdownList.innerHTML = '';
-
-    // Add "Todos" option
-    const allDiv = document.createElement('label');
-    allDiv.innerHTML = `<input type="checkbox" value="all" checked> Todos`;
-    allDiv.querySelector('input').addEventListener('change', handleTrackerSelection);
-    trackerDropdownList.appendChild(allDiv);
-
     const res = await JackettAPI.getIndexers(jackettConfig.url, jackettConfig.key);
     if (res.status === 'success') {
-      res.indexers.forEach(idx => {
-        const label = document.createElement('label');
-        label.innerHTML = `<input type="checkbox" value="${idx.id}"> ${idx.title}`;
-        label.querySelector('input').addEventListener('change', handleTrackerSelection);
-        trackerDropdownList.appendChild(label);
-      });
+      trackerDropdown.render(res.indexers);
     } else {
       console.warn("Error loading indexers:", res.error);
-    }
-    updateDropdownLabel();
-  }
-
-  function handleTrackerSelection(e) {
-    if (e.target.value === 'all' && e.target.checked) {
-      // Uncheck all others
-      trackerDropdownList.querySelectorAll('input:not([value="all"])').forEach(cb => cb.checked = false);
-    } else if (e.target.value !== 'all' && e.target.checked) {
-      // Uncheck 'all'
-      const allCb = trackerDropdownList.querySelector('input[value="all"]');
-      if (allCb) allCb.checked = false;
-    }
-    // If nothing checked, check 'all'
-    const anyChecked = trackerDropdownList.querySelector('input:checked');
-    if (!anyChecked) {
-      const allCb = trackerDropdownList.querySelector('input[value="all"]');
-      if (allCb) allCb.checked = true;
-    }
-    updateDropdownLabel();
-  }
-
-  function updateDropdownLabel() {
-    const checked = Array.from(trackerDropdownList.querySelectorAll('input:checked'));
-    if (checked.length === 1 && checked[0].value === 'all') {
-      trackerDropdownBtn.textContent = "Seleccionar Trackers (Todos)";
-    } else {
-      trackerDropdownBtn.textContent = `Seleccionados (${checked.length})`;
+      trackerDropdown.render([]);
     }
   }
 
@@ -244,11 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     jLoading.classList.remove('hidden');
     jResults.innerHTML = '';
 
-    // Get selected trackers
-    const checkedBoxes = Array.from(trackerDropdownList.querySelectorAll('input:checked'));
-    const trackers = checkedBoxes.map(cb => cb.value).includes('all')
-      ? 'all'
-      : checkedBoxes.map(cb => cb.value).join(',');
+    const trackers = trackerDropdown.getSelected();
 
     const res = await JackettAPI.search(jackettConfig.url, jackettConfig.key, query, trackers);
     jLoading.classList.add('hidden');
