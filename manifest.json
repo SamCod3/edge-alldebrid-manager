@@ -3,9 +3,18 @@
   "name": "AllDebrid Manager Pro",
   "version": "1.4",
   "description": "Gestiona, descarga y envía torrents a AllDebrid.",
-  "icons": { "16": "icon.png", "48": "icon.png", "128": "icon.png" },
-  "action": { "default_title": "Abrir Gestor AllDebrid" },
-  "background": { "service_worker": "background.js" },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_title": "Abrir Gestor AllDebrid"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "permissions": [
     "storage",
     "tabs",
@@ -15,6 +24,6 @@
   ],
   "host_permissions": [
     "https://api.alldebrid.com/*",
-    "*://*/*" 
+    "*://*/*"
   ]
 }

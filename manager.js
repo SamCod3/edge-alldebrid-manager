@@ -1,3 +1,6 @@
+import { Utils } from './utils.js';
+import { AllDebridAPI } from './api.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   // --- Elementos del DOM ---
   const configView = document.getElementById('config-view');
@@ -15,8 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const userWelcome = document.getElementById('user-welcome');
   const filesCount = document.getElementById('files-count');
 
-  // Constantes
-  const AGENT_NAME = "EdgeExtensionManager"; 
   let currentApiKey = '';
 
   // --- Inicialización ---
@@ -59,12 +60,12 @@ document.addEventListener('DOMContentLoaded', () => {
     saveKeyBtn.textContent = "Validando...";
     showFeedback('Conectando...', 'loading');
     try {
-      const userInfo = await validateApiKey(key);
+      const userInfo = await AllDebridAPI.validateApiKey(key);
       if (userInfo) {
         showFeedback('✅ Éxito', 'success');
-        chrome.storage.local.set({ 
-          alldebrid_apikey: key, 
-          alldebrid_username: userInfo.username 
+        chrome.storage.local.set({
+          alldebrid_apikey: key,
+          alldebrid_username: userInfo.username
         }, () => {
           currentApiKey = key;
           setTimeout(() => {
@@ -87,11 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshBtn.addEventListener('click', () => { if (currentApiKey) fetchFiles(currentApiKey); });
 
   // --- VISTAS ---
-  async function validateApiKey(key) {
-    const response = await fetch(`https://api.alldebrid.com/v4/user?agent=${AGENT_NAME}&apikey=${key}`);
-    const data = await response.json();
-    return (data.status === 'success') ? data.data.user : null;
-  }
 
   function showConfigView() {
     configView.classList.remove('hidden');
@@ -123,8 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.value = '';
 
     try {
-      const response = await fetch(`https://api.alldebrid.com/v4/magnet/status?agent=${AGENT_NAME}&apikey=${apiKey}`);
-      const data = await response.json();
+      const data = await AllDebridAPI.getMagnets(apiKey);
       loadingDiv.classList.add('hidden');
       if (data.status === 'success') {
         renderFiles(data.data.magnets);
@@ -149,17 +144,17 @@ document.addEventListener('DOMContentLoaded', () => {
     magnets.forEach(magnet => {
       const li = document.createElement('li');
       li.className = 'file-item';
-      
+
       const isReady = magnet.statusCode === 4;
       const statusClass = isReady ? 'status-ready' : 'status-downloading';
       const statusText = isReady ? 'Completado' : 'Descargando';
-      
+
       const mainRow = document.createElement('div');
       mainRow.className = 'file-row-main';
       mainRow.innerHTML = `
         <div class="file-info">
             <span class="file-name" title="${isReady ? 'Clic para ver enlaces' : 'No disponible'}">${magnet.filename}</span>
-            <span class="file-meta">${formatBytes(magnet.size)} • ${new Date(magnet.uploadDate * 1000).toLocaleDateString()}</span>
+            <span class="file-meta">${Utils.formatBytes(magnet.size)} • ${new Date(magnet.uploadDate * 1000).toLocaleDateString()}</span>
         </div>
         <div class="file-actions">
            <span class="status-badge ${statusClass}">${statusText}</span>
@@ -180,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteBtn.innerHTML = '🗑️';
       deleteBtn.title = 'Eliminar';
       deleteBtn.onclick = (e) => { e.stopPropagation(); deleteMagnet(magnet.id); };
-      
+
       mainRow.querySelector('.file-actions').appendChild(deleteBtn);
       li.appendChild(mainRow);
       fileList.appendChild(li);
@@ -202,14 +197,13 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const unlockPromises = links.map(async (linkObj) => {
         try {
-          const res = await fetch(`https://api.alldebrid.com/v4/link/unlock?agent=${AGENT_NAME}&apikey=${currentApiKey}&link=${encodeURIComponent(linkObj.link)}`);
-          const json = await res.json();
+          const json = await AllDebridAPI.unlockLink(currentApiKey, linkObj.link);
           if (json.status === 'success') return { ...linkObj, link: json.data.link };
-        } catch (e) {}
+        } catch (e) { }
         return linkObj;
       });
       const unlockedLinks = await Promise.all(unlockPromises);
-      box.innerHTML = ''; 
+      box.innerHTML = '';
       renderLinksBox(box, unlockedLinks);
     } catch (error) {
       box.innerHTML = '<div class="links-loading" style="color:#e74c3c">Error.</div>';
@@ -222,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     links.forEach(linkObj => {
       const ext = linkObj.filename.split('.').pop().toLowerCase();
       const isVideo = videoExts.includes(ext);
-      
+
       const row = document.createElement('div');
       row.className = `link-row ${isVideo ? 'is-video' : ''}`;
       const icon = isVideo ? '🎬' : '📄';
@@ -232,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <a href="${linkObj.link}" target="_blank" title="Descargar">${icon} ${linkObj.filename}</a>
         </div>
         <div class="link-actions">
-            <span class="link-meta">${formatBytes(linkObj.size)}</span>
+            <span class="link-meta">${Utils.formatBytes(linkObj.size)}</span>
             <button class="btn-copy" title="Copiar enlace">📋</button>
         </div>
       `;
@@ -259,16 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function deleteMagnet(id) {
     if (!confirm('¿Seguro que quieres eliminar este fichero?')) return;
     try {
-      const res = await fetch(`https://api.alldebrid.com/v4/magnet/delete?agent=${AGENT_NAME}&apikey=${currentApiKey}&id=${id}`);
-      const data = await res.json();
+      const data = await AllDebridAPI.deleteMagnet(currentApiKey, id);
       if (data.status === 'success') fetchFiles(currentApiKey);
     } catch (e) { alert('Error de red'); }
-  }
-
-  function formatBytes(bytes) {
-    if (!+bytes) return '0 B';
-    const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   }
 });

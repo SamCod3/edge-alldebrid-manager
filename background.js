@@ -1,4 +1,6 @@
-const AGENT_NAME = "EdgeExtensionManager";
+import { CONFIG } from './config.js';
+import { AllDebridAPI } from './api.js';
+
 const MENU_ID = "sendToAllDebrid";
 
 // 1. INIT
@@ -28,8 +30,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // 4. INTERCEPTOR DE DESCARGAS
 chrome.downloads.onCreated.addListener((downloadItem) => {
   // Detectar .torrent por extensión o MIME
-  const isTorrent = downloadItem.filename.toLowerCase().endsWith('.torrent') || 
-                    downloadItem.mime === 'application/x-bittorrent';
+  const isTorrent = downloadItem.filename.toLowerCase().endsWith('.torrent') ||
+    downloadItem.mime === 'application/x-bittorrent';
 
   if (isTorrent) {
     // 1. Pausamos para que no avance
@@ -59,7 +61,7 @@ chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
         if (results && results.length > 0) {
           const item = results[0];
           const urlToFetch = item.finalUrl || item.url;
-          
+
           // 1. Cancelamos y Borramos la descarga del navegador INMEDIATAMENTE
           // Esto evita que el navegador siga intentando bajarlo al disco
           chrome.downloads.cancel(downloadId, () => {
@@ -101,9 +103,7 @@ async function uploadMagnetUrl(magnet) {
   notify("⏳ Procesando Magnet...", "Enviando enlace...");
 
   try {
-    const apiUrl = `https://api.alldebrid.com/v4/magnet/upload?agent=${AGENT_NAME}&apikey=${apiKey}&magnets[]=${encodeURIComponent(magnet)}`;
-    const res = await fetch(apiUrl);
-    const json = await res.json();
+    const json = await AllDebridAPI.uploadMagnet(apiKey, magnet);
     handleApiResponse(json);
   } catch (e) {
     notify("❌ Error", e.message);
@@ -121,25 +121,15 @@ async function uploadTorrentFile(fileUrl) {
     // 1. Descargar el archivo a la memoria de la extensión
     // Al hacerlo desde background, usamos las cookies del navegador automágicamente
     const fileRes = await fetch(fileUrl);
-    
-    if (!fileRes.ok) throw new Error(`No se pudo descargar el .torrent original (${fileRes.status})`);
-    
-    const blob = await fileRes.blob();
 
-    // 2. Preparar el envío (FormData)
-    const formData = new FormData();
-    // 'files[]' es el campo que espera AllDebrid v4
-    formData.append('files[]', blob, 'upload.torrent');
+    if (!fileRes.ok) throw new Error(`No se pudo descargar el .torrent original (${fileRes.status})`);
+
+    const blob = await fileRes.blob();
 
     notify("⏳ Subiendo a AllDebrid...", "Enviando archivo...");
 
-    // 3. Subir archivo físico
-    const uploadRes = await fetch(`https://api.alldebrid.com/v4/magnet/upload/file?agent=${AGENT_NAME}&apikey=${apiKey}`, {
-      method: 'POST',
-      body: formData
-    });
-
-    const json = await uploadRes.json();
+    // 2. Subir archivo físico
+    const json = await AllDebridAPI.uploadTorrentFile(apiKey, blob);
     handleApiResponse(json);
 
   } catch (e) {
@@ -162,8 +152,8 @@ async function getApiKey() {
 function handleApiResponse(json) {
   if (json.status === 'success') {
     // La respuesta de 'upload/file' difiere ligeramente o puede traer varios
-    const magnets = json.data.magnets || json.data.files; 
-    
+    const magnets = json.data.magnets || json.data.files;
+
     if (magnets && magnets.length > 0) {
       const item = magnets[0];
       if (item.error) notify("❌ Error API", item.error.message);
