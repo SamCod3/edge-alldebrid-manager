@@ -26,6 +26,7 @@
       <div class="tabs">
         <button id="tab-completed" class="tab-item active">✅ Completados</button>
         <button id="tab-downloading" class="tab-item">⬇️ Descargando</button>
+        <button id="tab-search" class="tab-item">🔍 Buscar</button>
       </div>
     </header>
 
@@ -42,17 +43,36 @@
         </div>
 
         <div class="config-grid">
-          <!-- LEFT: Manual Connection -->
-          <div class="config-card login-card">
-            <h3>🔑 Conexión Manual</h3>
-            <p class="desc">Introduce tu API Key para vincular este dispositivo.</p>
+          <!-- LEFT COLUMN -->
+          <div class="config-col-left" style="display:flex; flex-direction:column; gap:20px;">
+            <!-- Manual Connection -->
+            <div class="config-card login-card">
+              <h3>🔑 AllDebrid API</h3>
+              <p class="desc">Introduce tu API Key para vincular este dispositivo.</p>
 
-            <div class="input-group">
-              <input type="text" id="api-key-input" placeholder="Pegar API Key..." autocomplete="off" />
-              <button id="save-key-btn" class="primary-btn">Validar</button>
+              <div class="input-group">
+                <input type="text" id="api-key-input" placeholder="Pegar API Key..." autocomplete="off" />
+                <button id="save-key-btn" class="primary-btn">Guardar</button>
+              </div>
+              <div id="config-feedback" class="feedback-msg"></div>
+              <p class="help"><small>Perfil > API Key en alldebrid.com</small></p>
             </div>
-            <div id="config-feedback" class="feedback-msg"></div>
-            <p class="help"><small>Perfil > API Key en alldebrid.com</small></p>
+
+            <!-- Jackett Config -->
+            <div class="config-card jackett-card">
+              <h3>🧥 Jackett (Opcional)</h3>
+              <p class="desc">Conecta tu buscador local.</p>
+
+              <label class="input-label">URL (ej. http://localhost:9117)</label>
+              <input type="text" id="jackett-url-input" class="config-input" placeholder="http://127.0.0.1:9117" />
+
+              <label class="input-label">API Key</label>
+              <div class="input-group">
+                <input type="text" id="jackett-key-input" class="config-input" placeholder="Jackett API Key..." />
+                <button id="save-jackett-btn" class="action-btn">Guardar</button>
+              </div>
+              <div id="jackett-feedback" class="feedback-msg"></div>
+            </div>
           </div>
 
           <!-- RIGHT: Key Manager -->
@@ -101,6 +121,16 @@
 
       <!-- LISTA COMPLETADOS -->
       <ul id="list-completed" class="file-list-container hidden"></ul>
+    </div>
+
+    <!-- SEARCH VIEW -->
+    <div id="search-view" class="view-section hidden">
+      <div class="search-toolbar">
+        <input type="text" id="j-search-input" placeholder="Buscar en Jackett..." class="search-input-large" />
+        <button id="j-search-btn" class="primary-btn" style="width: auto; padding: 0 20px;">Buscar</button>
+      </div>
+      <div id="j-loading" class="hidden loading-bar">Buscando en trackers...</div>
+      <div id="j-results" class="jackett-results-container"></div>
     </div>
   </div>
 

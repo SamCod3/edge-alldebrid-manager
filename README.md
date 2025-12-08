@@ -5,6 +5,13 @@ Una extensión moderna y eficiente para gestionar tus descargas de **AllDebrid**
 ## ✨ Características Principales
 
 *   **⚡ Intercepción Inteligente**: Detecta descargas de archivos `.torrent` y Clicks en enlaces `magnet:`, ofreciendo enviarlos a AllDebrid en lugar de descargarlos localmente.
+*   **🧥 Integración con Jackett**:
+    *   **Buscador Integrado**: Busca torrents en tus trackers privados/públicos desde la extensión.
+    *   **Resultados Detallados**: Tabla con fecha, tracker, nombre, tamaño, categoría y semillas.
+    *   **Feedback Visual**:
+        *   **Verde**: Archivos ya en la nube (Ready/Cached).
+        *   **Rojo**: Archivos enviándose a descargar.
+        *   **Check ✔**: Indica qué archivos ya has enviado en esta sesión.
 *   **📊 Panel de Control Completo**:
     *   **Descargas Activas**: Barra de progreso real, velocidad, semillas (seeds) y estado.
     *   **Historial**: Listado de torrents completados con desbloqueo automático de enlaces.
@@ -12,8 +19,6 @@ Una extensión moderna y eficiente para gestionar tus descargas de **AllDebrid**
 *   **🔑 Gestión de API Keys**:
     *   Administra tus claves de AllDebrid sin salir de la extensión.
     *   **Crear, Renombrar y Borrar** claves directamente desde la interfaz.
-    *   Diseño aislado para mayor seguridad y claridad.
-*   **🎨 UI Premium**: Interfaz oscura, moderna y responsiva, diseñada para integrarse perfectamente con el navegador.
 
 ## 🚀 Instalación
 
@@ -29,23 +34,36 @@ Esta extensión está diseñada para cargarse en modo desarrollador (sin empaque
 
 ## 🛠️ Configuración
 
-1.  Haz clic en el icono de la extensión en tu barra de herramientas.
-2.  Si es la primera vez, verás la pantalla de **Configuración**.
-3.  Tienes dos opciones:
-    *   **Manual**: Pega tu API Key de AllDebrid si ya la tienes.
-    *   **Gestor de Claves**: Si has iniciado sesión en la web de AllDebrid en este navegador, verás tus claves actuales. Puedes seleccionar una y darle a **"USAR"**, o crear una nueva específica para este navegador.
+### AllDebrid
+1.  Haz clic en el icono de la extensión.
+2.  Si estás logueado en AllDebrid, verás tus claves en el **Gestor de Claves**. Dale a "USAR" o crea una nueva.
+3.  Si no, puedes pegar tu API Key manualmente.
+
+### Jackett (Opcional)
+Para buscar torrents directamente:
+1.  Ve a Configuración (⚙️).
+2.  Introduce la **URL** de tu servidor Jackett (ej. `http://localhost:9117`).
+3.  Introduce la **API Key** de Jackett (visible en el dashboard de Jackett).
+4.  ¡Listo! Usa la pestaña 🔍 **Buscar**.
 
 ## 📖 Uso
 
-### Añadir Torrents
-*   **Magnets**: Simplemente haz clic en cualquier enlace magnet. La extensión lo capturará.
-*   **Archivos .torrent**: Al intentar descargar un `.torrent`, la extensión pausará la descarga y te preguntará si quieres enviarlo a la nube o descargarlo localmente.
-*   **Menú Contextual**: Click derecho en cualquier enlace -> "⚡ Enviar a AllDebrid".
+### Buscador Jackett
+*   Escribe el nombre de la película o serie.
+*   Dale al botón ⚡ (Rayo) para enviar a AllDebrid.
+*   **Colores**:
+    *   **Título Verde**: ¡Está en caché! Descarga instantánea.
+    *   **Título Rojo**: Se está descargando en la nube.
+    *   **Botón ✔**: Ya enviaste este archivo.
+
+### Añadir Torrents Externos
+*   **Magnets**: Click en cualquier enlace magnet.
+*   **Archivos .torrent**: La extensión intercepta la descarga y te pregunta.
+*   **Menú Contextual**: Click derecho -> "⚡ Enviar a AllDebrid".
 
 ### Gestionar Archivos
-Abre la extensión para ver el estado:
-*   Pestaña **⬇️ Descargando**: Muestra el progreso. Puedes **Reiniciar** (🔄) o **Eliminar** (🗑️) descargas activas.
-*   Pestaña **✅ Completados**: Muestra tus archivos listos. Haz clic en el nombre para **ver los enlaces desbloqueados** listos para bajar o ver en streaming.
+*   Pestaña **⬇️ Descargando**: Progreso, velocidad y acciones (Reiniciar/Eliminar).
+*   Pestaña **✅ Completados**: Archivos listos. Click para **ver enlaces desbloqueados**.
 
 ## 🔧 Tecnologías
 
