@@ -41,6 +41,26 @@
         <div id="config-feedback" class="feedback-msg"></div>
 
         <p class="help"><small>Obtenla en tu perfil de AllDebrid > API Key.</small></p>
+
+        <!-- API KEY MANAGER -->
+        <div id="key-manager-section" class="key-manager mt-4">
+          <hr style="border-color:#444; margin: 20px 0;">
+          <h4>Gestión de Claves</h4>
+          <div id="km-loading" class="hidden">Obteniendo claves web...</div>
+          <div id="km-login-req" class="hidden" style="color:#e74c3c; font-size:0.9em;">
+            <a href="https://alldebrid.com/login" target="_blank" style="color:#e74c3c;">Inicia sesión en AllDebrid</a>
+            para ver tus claves.
+          </div>
+
+          <ul id="km-list" class="km-list"></ul>
+
+          <div class="km-create">
+            <input type="text" id="km-new-name" placeholder="Nombre (ej. Extension)" class="search-input"
+              style="font-size:14px; padding:8px;">
+            <button id="km-create-btn" class="primary-btn" style="padding:8px; margin-top:5px; font-size:14px;">➕ Crear
+              Nueva</button>
+          </div>
+        </div>
       </div>
     </div>
 

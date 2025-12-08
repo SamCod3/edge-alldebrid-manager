@@ -1,7 +1,90 @@
 import { Utils } from './utils.js';
-import { AllDebridAPI } from './api.js';
+import { AllDebridAPI, DashboardAPI } from './api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  // ... (existing DOM elements)
+
+  // NEW DOM ELEMENTS
+  const kmList = document.getElementById('km-list');
+  const kmLoading = document.getElementById('km-loading');
+  const kmLoginReq = document.getElementById('km-login-req');
+  const kmNewName = document.getElementById('km-new-name');
+  const kmCreateBtn = document.getElementById('km-create-btn');
+
+  // ... (rest of vars)
+
+  // ... (init and watchers)
+
+  // KM Listeners
+  kmCreateBtn.addEventListener('click', async () => {
+    const name = kmNewName.value.trim();
+    if (!name) return;
+    kmCreateBtn.disabled = true;
+    kmCreateBtn.textContent = "Creando...";
+    const res = await DashboardAPI.createKey(name);
+    kmCreateBtn.disabled = false;
+    kmCreateBtn.textContent = "➕ Crear Nueva";
+
+    if (res.status === 'success') {
+      kmNewName.value = '';
+      loadDashboardKeys();
+    } else {
+      alert('Error creando key: ' + (res.error || 'Desconocido'));
+    }
+  });
+
+  // ... (existing code)
+
+  function showConfigView() {
+    configView.classList.remove('hidden');
+    filesView.classList.add('hidden');
+    refreshBtn.style.display = 'none';
+    searchInput.disabled = true;
+
+    // Load Keys
+    loadDashboardKeys();
+  }
+
+  async function loadDashboardKeys() {
+    kmList.innerHTML = '';
+    kmLoading.classList.remove('hidden');
+    kmLoginReq.classList.add('hidden');
+
+    const res = await DashboardAPI.fetchKeys();
+    kmLoading.classList.add('hidden');
+
+    if (res.error === 'not_logged_in') {
+      kmLoginReq.classList.remove('hidden');
+    } else if (res.keys) {
+      renderKeys(res.keys);
+    }
+  }
+
+  function renderKeys(keys) {
+    if (keys.length === 0) kmList.innerHTML = '<div style="color:#777; padding:10px;">No se encontraron keys.</div>';
+
+    keys.forEach(k => {
+      const div = document.createElement('div');
+      div.className = 'km-item';
+      div.innerHTML = `
+            <div class="km-info">
+               <span class="km-label">${k.name}</span>
+               <span class="km-val">${k.key.substring(0, 8)}...</span>
+            </div>
+            <button class="btn-use">Usar</button>
+          `;
+
+      div.querySelector('.btn-use').onclick = () => {
+        apiKeyInput.value = k.key;
+        // Trigger save
+        saveKeyBtn.click();
+      };
+
+      kmList.appendChild(div);
+    });
+  }
+
+  // ... (rest of existing functions)
   // --- Elementos del DOM ---
   const configView = document.getElementById('config-view');
   const filesView = document.getElementById('files-view');
@@ -184,6 +267,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Filter
     const activeMagnets = magnets.filter(m => m.statusCode !== 4);
     const completedMagnets = magnets.filter(m => m.statusCode === 4);
+
+    // Update Tab Indicator
+    if (activeMagnets.length > 0) {
+      tabDownloading.textContent = `⬇️ Descargando (${activeMagnets.length})`;
+      tabDownloading.classList.add('has-active'); // Optional styling hook
+    } else {
+      tabDownloading.textContent = `⬇️ Descargando`;
+      tabDownloading.classList.remove('has-active');
+    }
 
     renderList(activeMagnets, fileListActive, 'active');
     renderList(completedMagnets, fileListCompleted, 'completed');
