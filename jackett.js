@@ -81,7 +81,7 @@ export const JackettAPI = {
                     }
 
                     let catId = item.querySelector("category")?.textContent || "";
-                    let catName = getCategoryName(catId);
+                    let catName = JackettAPI.getCategoryName(catId);
 
                     results.push({
                         title: item.querySelector("title")?.textContent || "Sin título",
@@ -120,29 +120,34 @@ export const JackettAPI = {
         } catch (e) {
             return { error: e.message };
         }
+    },
+
+    getCategoryName(id) {
+        if (!id) return "Other";
+        const n = parseInt(id, 10);
+
+        const TO_CAT = {
+            1000: "Console",
+            2000: "Movies", 2010: "Movies/Foreign", 2020: "Movies/Other", 2030: "Movies/SD", 2040: "Movies/HD", 2045: "Movies/UHD", 2050: "Movies/BluRay", 2060: "Movies/3D",
+            3000: "Audio", 3010: "Audio/MP3", 3020: "Audio/Video", 3030: "Audio/Audiobook", 3040: "Audio/Lossless",
+            4000: "PC", 4010: "PC/0day", 4020: "PC/ISO", 4030: "PC/Mac", 4040: "PC/Mobile", 4050: "PC/Games",
+            5000: "TV", 5010: "TV/Foreign", 5020: "TV/Other", 5030: "TV/SD", 5040: "TV/HD", 5045: "TV/UHD", 5050: "TV/BluRay", 5060: "TV/Sport", 5070: "TV/Anime", 5080: "TV/Docu",
+            6000: "XXX",
+            7000: "Books", 7010: "Books/Mags", 7020: "Books/Ebook", 7030: "Books/Comics",
+            8000: "Other"
+        };
+
+        if (TO_CAT[n]) return TO_CAT[n];
+
+        // Ranges fallback
+        if (n >= 1000 && n < 2000) return "Console";
+        if (n >= 2000 && n < 3000) return "Movies";
+        if (n >= 3000 && n < 4000) return "Audio";
+        if (n >= 4000 && n < 5000) return "PC";
+        if (n >= 5000 && n < 6000) return "TV";
+        if (n >= 6000 && n < 7000) return "XXX";
+        if (n >= 7000 && n < 8000) return "Books";
+
+        return "Other";
     }
 };
-
-function getCategoryName(id) {
-    if (!id) return "Other";
-    const n = parseInt(id, 10);
-    if (n >= 1000 && n < 2000) return "Console";
-    if (n === 2000) return "Movies";
-    if (n === 2030) return "Movies/SD";
-    if (n === 2040) return "Movies/HD";
-    if (n === 2045) return "Movies/UHD";
-    if (n === 2060) return "Movies/3D";
-    if (n > 2000 && n < 3000) return "Movies";
-    if (n === 3000) return "Audio";
-    if (n >= 3000 && n < 4000) return "Audio";
-    if (n >= 4000 && n < 5000) return "PC";
-    if (n === 5000) return "TV";
-    if (n === 5030) return "TV/SD";
-    if (n === 5040) return "TV/HD";
-    if (n === 5045) return "TV/UHD";
-    if (n > 5000 && n < 6000) return "TV";
-    if (n >= 6000 && n < 7000) return "XXX";
-    if (n >= 7000 && n < 8000) return "Other";
-    if (n >= 8000) return "Books";
-    return id; // Fallback to ID
-}

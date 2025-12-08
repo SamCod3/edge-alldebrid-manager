@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="j-col-date">${dateStr}</td>
             <td class="j-col-tracker"><span class="tracker-tag">${item.indexer}</span></td>
             <td class="j-col-name">
-               <a href="#" class="j-link-title" title="${item.title}">${item.title}</a>
+               <a href="#" class="j-link-title" title="${item.title}">${item.title.replace(/\[?free\]?/gi, '').trim()}</a>
             </td>
             <td class="j-col-size">${Utils.formatBytes(item.size)}</td>
             <td class="j-col-cat">${item.category}</td>
