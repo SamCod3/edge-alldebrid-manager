@@ -30,37 +30,56 @@
     </header>
 
     <div id="config-view" class="view-section hidden">
-      <div class="card">
-        <h3>Conectar Cuenta</h3>
-        <p class="info-text">Introduce tu API Key para gestionar tus ficheros.</p>
+      <div class="config-container-fluid">
 
-        <input type="text" id="api-key-input" placeholder="Pegar API Key aquí..." autocomplete="off" />
-
-        <button id="save-key-btn" class="primary-btn">Validar y Guardar</button>
-
-        <div id="config-feedback" class="feedback-msg"></div>
-
-        <p class="help"><small>Obtenla en tu perfil de AllDebrid > API Key.</small></p>
-
-        <!-- API KEY MANAGER -->
-        <div id="key-manager-section" class="key-manager mt-4">
-          <hr style="border-color:#444; margin: 20px 0;">
-          <h4>Gestión de Claves</h4>
-          <div id="km-loading" class="hidden">Obteniendo claves web...</div>
-          <div id="km-login-req" class="hidden" style="color:#e74c3c; font-size:0.9em;">
-            <a href="https://alldebrid.com/login" target="_blank" style="color:#e74c3c;">Inicia sesión en AllDebrid</a>
-            para ver tus claves.
-          </div>
-
-          <ul id="km-list" class="km-list"></ul>
-
-          <div class="km-create">
-            <input type="text" id="km-new-name" placeholder="Nombre (ej. Extension)" class="search-input"
-              style="font-size:14px; padding:8px;">
-            <button id="km-create-btn" class="primary-btn" style="padding:8px; margin-top:5px; font-size:14px;">➕ Crear
-              Nueva</button>
+        <!-- Headers & Actions -->
+        <div class="config-header">
+          <button id="config-back-btn" class="back-btn" title="Volver">← Volver</button>
+          <div class="header-text">
+            <h2>Configuración</h2>
+            <p class="subtitle">Gestiona tu conexión y claves de acceso.</p>
           </div>
         </div>
+
+        <div class="config-grid">
+          <!-- LEFT: Manual Connection -->
+          <div class="config-card login-card">
+            <h3>🔑 Conexión Manual</h3>
+            <p class="desc">Introduce tu API Key para vincular este dispositivo.</p>
+
+            <div class="input-group">
+              <input type="text" id="api-key-input" placeholder="Pegar API Key..." autocomplete="off" />
+              <button id="save-key-btn" class="primary-btn">Validar</button>
+            </div>
+            <div id="config-feedback" class="feedback-msg"></div>
+            <p class="help"><small>Perfil > API Key en alldebrid.com</small></p>
+          </div>
+
+          <!-- RIGHT: Key Manager -->
+          <div id="key-manager-section" class="config-card keys-card">
+            <div class="card-head">
+              <h3>Tus Claves Web</h3>
+              <span id="km-refresh-btn" class="icon-btn" title="Recargar">🔄</span>
+            </div>
+
+            <div id="km-login-req" class="hidden login-alert">
+              <a href="https://alldebrid.com/login" target="_blank">⚠️ Inicia sesión en AllDebrid</a> para gestionar tus
+              claves.
+            </div>
+
+            <div id="km-loading" class="hidden loading-spinner">Cargando...</div>
+
+            <!-- GRID OF CARDS -->
+            <div id="km-list" class="keys-grid"></div>
+
+            <!-- CREATE NEW -->
+            <div class="new-key-row">
+              <input type="text" id="km-new-name" placeholder="Nombre de nueva clave..." />
+              <button id="km-create-btn" class="action-btn">➕ Crear</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 

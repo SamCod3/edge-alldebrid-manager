@@ -10,38 +10,47 @@ document.addEventListener('DOMContentLoaded', () => {
   const kmLoginReq = document.getElementById('km-login-req');
   const kmNewName = document.getElementById('km-new-name');
   const kmCreateBtn = document.getElementById('km-create-btn');
+  const kmRefreshBtn = document.getElementById('km-refresh-btn'); // Add this to HTML if missing, but style supports it
+  const configBackBtn = document.getElementById('config-back-btn');
 
   // ... (rest of vars)
 
   // ... (init and watchers)
 
   // KM Listeners
-  kmCreateBtn.addEventListener('click', async () => {
+  kmCreateBtn.addEventListener('click', handleCreateKey);
+  if (kmRefreshBtn) kmRefreshBtn.addEventListener('click', loadDashboardKeys);
+  if (configBackBtn) configBackBtn.addEventListener('click', () => showFilesView(currentApiKey));
+
+  async function handleCreateKey() {
     const name = kmNewName.value.trim();
     if (!name) return;
+
+    const originalText = kmCreateBtn.textContent;
     kmCreateBtn.disabled = true;
-    kmCreateBtn.textContent = "Creando...";
+    kmCreateBtn.textContent = "...";
+
     const res = await DashboardAPI.createKey(name);
+
     kmCreateBtn.disabled = false;
-    kmCreateBtn.textContent = "➕ Crear Nueva";
+    kmCreateBtn.textContent = originalText;
 
     if (res.status === 'success') {
       kmNewName.value = '';
       loadDashboardKeys();
     } else {
-      alert('Error creando key: ' + (res.error || 'Desconocido'));
+      alert('Error: ' + (res.error || 'Desconocido'));
     }
-  });
+  }
 
   // ... (existing code)
 
   function showConfigView() {
     configView.classList.remove('hidden');
     filesView.classList.add('hidden');
-    refreshBtn.style.display = 'none';
-    searchInput.disabled = true;
+    document.body.classList.add('config-active');
 
-    // Load Keys
+    // Always Try to load Keys when entering config view
     loadDashboardKeys();
   }
 
@@ -61,23 +70,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderKeys(keys) {
-    if (keys.length === 0) kmList.innerHTML = '<div style="color:#777; padding:10px;">No se encontraron keys.</div>';
+    if (keys.length === 0) {
+      kmList.innerHTML = '<div style="color:#777; padding:20px; grid-column: 1/-1; text-align:center;">No se encontraron claves.</div>';
+      return;
+    }
 
     keys.forEach(k => {
       const div = document.createElement('div');
-      div.className = 'km-item';
+      div.className = 'key-card-item';
       div.innerHTML = `
-            <div class="km-info">
-               <span class="km-label">${k.name}</span>
-               <span class="km-val">${k.key.substring(0, 8)}...</span>
+            <div class="key-icon">🔑</div>
+            <div class="key-content">
+                <div class="key-card-head">
+                    <div class="key-name" title="${k.name}">${k.name}</div>
+                    <div class="key-tools">
+                        <span class="btn-icon-small btn-edit" title="Renombrar">✏️</span>
+                        <span class="btn-icon-small btn-delete" title="Eliminar">🗑️</span>
+                    </div>
+                </div>
+                <span class="key-val">${k.key.substring(0, 12)}...</span>
             </div>
-            <button class="btn-use">Usar</button>
+            <div class="key-actions">
+                <button class="btn-use-key">USAR</button>
+            </div>
           `;
 
-      div.querySelector('.btn-use').onclick = () => {
+      // Logic
+      div.querySelector('.btn-use-key').onclick = () => {
         apiKeyInput.value = k.key;
-        // Trigger save
         saveKeyBtn.click();
+      };
+
+      div.querySelector('.btn-delete').onclick = async (e) => {
+        e.stopPropagation();
+        if (confirm(`¿Eliminar clave "${k.name}"?`)) {
+          const res = await DashboardAPI.deleteKey(k.key);
+          if (res.status === 'success') loadDashboardKeys();
+          else alert('Error: ' + res.error);
+        }
+      };
+
+      div.querySelector('.btn-edit').onclick = async (e) => {
+        e.stopPropagation();
+        const newName = prompt("Nuevo nombre para la clave:", k.name);
+        if (newName && newName !== k.name) {
+          const res = await DashboardAPI.renameKey(k.key, newName);
+          if (res.status === 'success') loadDashboardKeys();
+          else alert('Error: ' + res.error);
+        }
       };
 
       kmList.appendChild(div);
@@ -207,18 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- VISTAS ---
 
-  function showConfigView() {
-    configView.classList.remove('hidden');
-    filesView.classList.add('hidden');
-    refreshBtn.style.display = 'none';
-    searchInput.disabled = true;
-  }
+
 
   function showFilesView(apiKey, username = 'Usuario') {
     configView.classList.add('hidden');
     filesView.classList.remove('hidden');
-    refreshBtn.style.display = 'inline-block';
-    searchInput.disabled = false;
+    document.body.classList.remove('config-active');
+
     if (username) userWelcome.textContent = `${username}`;
     fetchFiles(apiKey);
   }

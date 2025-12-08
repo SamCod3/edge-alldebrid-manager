@@ -48,76 +48,98 @@ export const AllDebridAPI = {
 export const DashboardAPI = {
     async fetchKeys() {
         try {
-            const res = await fetch('https://alldebrid.com/apikeys');
+            const res = await fetch('https://alldebrid.com/apikeys', { credentials: 'include' });
             const text = await res.text();
-
-            // Basic scraping - This relies on the structure of the page
-            // We look for the table containing keys
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
 
             // Check if logged in
             if (text.includes('name="login"')) return { error: 'not_logged_in' };
 
-            const keys = [];
-            const rows = doc.querySelectorAll('table tbody tr');
+            // Strategy 2: Regex parse the specific JS variables
+            // var keys = [ ... ];
+            const keysMatch = text.match(/var keys = (\[[\s\S]*?\]);/);
 
-            rows.forEach(row => {
-                const cols = row.querySelectorAll('td');
-                if (cols.length >= 2) {
-                    const name = cols[0].textContent.trim();
-                    const key = cols[1].textContent.trim();
-                    // Try to find a delete button/form to get the ID if needed
-                    // Often delete is a form submit or a link with an ID
-                    // Making a best guess here or just returning name/key for now
-                    keys.push({ name, key });
+            const foundKeys = [];
+
+            if (keysMatch && keysMatch[1]) {
+                try {
+                    const jsonKeys = JSON.parse(keysMatch[1]);
+                    jsonKeys.forEach(k => {
+                        foundKeys.push({
+                            name: k.name,
+                            key: k.apikey
+                        });
+                    });
+                } catch (e) {
+                    console.error('Error parsing keys JSON', e);
                 }
-            });
-            return { status: 'success', keys };
+            }
+
+            return { status: 'success', keys: foundKeys };
         } catch (e) {
             return { error: e.message };
         }
     },
 
     async createKey(name) {
-        // Requires sniffing the form data structure
-        // Usually POST to /apikeys with name and a CSRF token
         try {
-            // 1. Get the page to find CSRF token
-            const res = await fetch('https://alldebrid.com/apikeys');
-            const text = await res.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-
-            // Try to find the creation form
-            // This is speculative without seeing the source, assuming a standard form
-            // <input type="hidden" name="token" value="...">
-            const tokenInput = doc.querySelector('input[name="token"]');
-            const token = tokenInput ? tokenInput.value : null;
-
-            if (!token) return { error: 'csrf_not_found' };
+            // Based on source, it's a simple POST to /apikeys with 'name'
+            // No explicit CSRF token field was found in the static HTML form.
+            // We rely on standard cookies 'credentials: include'.
 
             const formData = new FormData();
-            formData.append('token', token);
             formData.append('name', name);
-            formData.append('submit', '1'); // Common submit value
+            // Sometimes forms send 'submit' name with value
+            // <input ... name='submit' value='Crear' /> would send submit=Crear? 
+            // HTML says: <input ... type='submit' value='Crear' /> (no name attribute on submit button)
+            // ensure we mimic exactly if possible. The form has no hidden inputs.
 
-            const postRes = await fetch('https://alldebrid.com/apikeys', {
+            const postRes = await fetch('https://alldebrid.com/apikeys/', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include'
             });
 
-            return { status: 'success' };
+            // Retrieve text to see if success or error
+            // A success usually reloads the page. We can check the response text for the new key name?
+            // Or just let the caller reload the list.
+
+            if (postRes.ok) return { status: 'success' };
+            return { error: 'Network error: ' + postRes.status };
+
         } catch (e) {
             return { error: e.message };
         }
     },
 
-    async deleteKey(keyOrId) {
-        // Deletion usually requires a specific ID or Token
-        // Without visual confirmation of the dashboard HTML, this is risky to implement blindly.
-        // I will skip implementation of DELETE for safety in this iteration 
-        // and asking user to delete manually if needed, or I can try to parse the delete link.
-        return { error: 'not_implemented' };
+    async deleteKey(key) {
+        try {
+            const formData = new FormData();
+            formData.append('delete', key); // Reversed from 'post("/apikeys/", {delete: key})'
+
+            const res = await fetch('https://alldebrid.com/apikeys/', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            if (res.ok) return { status: 'success' };
+            return { error: 'Network error: ' + res.status };
+        } catch (e) {
+            return { error: e.message };
+        }
+    },
+
+    async renameKey(key, newName) {
+        try {
+            // Reversed from: request.open("GET", "/apikeys?apikey=" + ... + "&newName=" + ...)
+            const url = `https://alldebrid.com/apikeys?apikey=${encodeURIComponent(key)}&newName=${encodeURIComponent(newName)}`;
+            const res = await fetch(url, { credentials: 'include' });
+            const text = await res.text();
+
+            if (text === 'Updated') return { status: 'success' };
+            return { error: 'Failed to update: ' + text };
+        } catch (e) {
+            return { error: e.message };
+        }
     }
 };
