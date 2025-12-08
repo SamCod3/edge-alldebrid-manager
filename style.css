@@ -771,6 +771,63 @@ body.config-active header {
   box-sizing: border-box;
 }
 
+select.config-input option {
+  background-color: #1a1a1a !important;
+  color: #eeeeee !important;
+  padding: 5px;
+}
+
+/* Custom Dropdown */
+.custom-dropdown {
+  position: relative;
+  display: inline-block;
+  margin-right: 10px;
+}
+
+.dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #1a1a1a;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.dropdown-content label {
+  color: #eee;
+  padding: 8px 12px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.dropdown-content label:last-child {
+  border-bottom: none;
+}
+
+.dropdown-content label:hover {
+  background-color: #333;
+}
+
+.outline-btn {
+  background: transparent;
+  border: 1px solid #00ce7c;
+  color: #00ce7c;
+}
+
+.outline-btn:hover {
+  background: rgba(0, 206, 124, 0.1);
+}
+
 /* Search View */
 .search-toolbar {
   padding: 20px;

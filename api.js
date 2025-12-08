@@ -15,7 +15,12 @@ export const AllDebridAPI = {
     async uploadMagnet(apiKey, magnet) {
         const url = `${CONFIG.API_BASE_URL}/magnet/upload?agent=${CONFIG.AGENT_NAME}&apikey=${apiKey}&magnets[]=${encodeURIComponent(magnet)}`;
         const response = await fetch(url);
-        return await response.json();
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return { error: { message: `API Error ${response.status}: ${text.slice(0, 100)}` } };
+        }
     },
 
     async uploadTorrentFile(apiKey, blob) {
@@ -26,7 +31,12 @@ export const AllDebridAPI = {
             method: 'POST',
             body: formData
         });
-        return await response.json();
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return { error: { message: `API Error ${response.status}: ${text.slice(0, 100)}` } };
+        }
     },
 
     async unlockLink(apiKey, link) {

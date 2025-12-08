@@ -126,6 +126,13 @@
     <!-- SEARCH VIEW -->
     <div id="search-view" class="view-section hidden">
       <div class="search-toolbar">
+        <!-- Custom Dropdown -->
+        <div id="custom-tracker-dropdown" class="custom-dropdown">
+          <button id="tracker-dropdown-btn" class="primary-btn outline-btn">Seleccionar Trackers (Todos)</button>
+          <div id="tracker-dropdown-list" class="dropdown-content hidden">
+            <!-- Populated via JS -->
+          </div>
+        </div>
         <input type="text" id="j-search-input" placeholder="Buscar en Jackett..." class="search-input-large" />
         <button id="j-search-btn" class="primary-btn" style="width: auto; padding: 0 20px;">Buscar</button>
       </div>
