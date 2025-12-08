@@ -27,18 +27,36 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
+const allowedUrls = new Set();
+const notificationMap = {};
+
 // 4. INTERCEPTOR DE DESCARGAS
 chrome.downloads.onCreated.addListener((downloadItem) => {
+  const url = downloadItem.finalUrl || downloadItem.url;
+
+  // Si está en la lista blanca, es una descarga permitida por nosotros (Loop Prevention)
+  if (allowedUrls.has(url)) {
+    allowedUrls.delete(url);
+    return;
+  }
+
   // Detectar .torrent por extensión o MIME
   const isTorrent = downloadItem.filename.toLowerCase().endsWith('.torrent') ||
     downloadItem.mime === 'application/x-bittorrent';
 
   if (isTorrent) {
-    // 1. Pausamos para que no avance
-    chrome.downloads.pause(downloadItem.id);
+    // 1. CANCELAMOS INMEDIATAMENTE para evitar diálogos "Guardar como..." del navegador
+    chrome.downloads.cancel(downloadItem.id, () => {
+      if (chrome.runtime.lastError) { /* ignore */ }
+      chrome.downloads.erase({ id: downloadItem.id });
+    });
 
-    // 2. Preguntamos
-    chrome.notifications.create(`torrent-ask-${downloadItem.id}`, {
+    // 2. Guardamos contexto para la notificación
+    const notifId = `torrent-ask-${Date.now()}`;
+    notificationMap[notifId] = url;
+
+    // 3. Preguntamos
+    chrome.notifications.create(notifId, {
       type: 'basic',
       iconUrl: 'icon.png',
       title: '📦 Torrent Detectado',
@@ -53,30 +71,20 @@ chrome.downloads.onCreated.addListener((downloadItem) => {
 // 5. RESPUESTA NOTIFICACIÓN
 chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
   if (notifId.startsWith('torrent-ask-')) {
-    const downloadId = parseInt(notifId.split('-')[2]);
+    const url = notificationMap[notifId];
+    if (!url) return; // Ya no existe referencia
 
     if (btnIdx === 0) {
       // --- OPCIÓN SÍ: ENVIAR ---
-      chrome.downloads.search({ id: downloadId }, (results) => {
-        if (results && results.length > 0) {
-          const item = results[0];
-          const urlToFetch = item.finalUrl || item.url;
-
-          // 1. Cancelamos y Borramos la descarga del navegador INMEDIATAMENTE
-          // Esto evita que el navegador siga intentando bajarlo al disco
-          chrome.downloads.cancel(downloadId, () => {
-            if (chrome.runtime.lastError) console.log("Error cancelando:", chrome.runtime.lastError);
-            chrome.downloads.erase({ id: downloadId });
-          });
-
-          // 2. Procesamos la subida internamente
-          processLinkOrTorrent(urlToFetch);
-        }
-      });
+      processLinkOrTorrent(url);
     } else {
       // --- OPCIÓN NO: BAJAR LOCAL ---
-      chrome.downloads.resume(downloadId);
+      allowedUrls.add(url);
+      chrome.downloads.download({ url: url });
     }
+
+    // Limpieza
+    delete notificationMap[notifId];
     chrome.notifications.clear(notifId);
   }
 });
