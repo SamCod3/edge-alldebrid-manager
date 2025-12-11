@@ -1003,3 +1003,201 @@ select.config-input option {
   display: none !important;
 }
 
+
+/* TV List Styles */
+.tv-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 15px;
+  max-height: 150px;
+  overflow-y: auto;
+  border-top: 1px solid #eee;
+}
+
+.tv-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 0.9em;
+}
+
+.tv-item:last-child {
+  border-bottom: none;
+}
+
+.tv-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.tv-ip {
+  color: #7f8c8d;
+  font-size: 0.85em;
+}
+
+.btn-remove-tv {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.btn-remove-tv:hover {
+  opacity: 1;
+}
+
+/* Cast Button */
+.btn-cast {
+  background: none;
+  border: 1px solid #9b59b6;
+  color: #9b59b6;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 0.9em;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.btn-cast:hover {
+  background: #9b59b6;
+  color: white;
+}
+
+/* Config Tabs */
+.config-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #eee;
+}
+
+.config-tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1em;
+  font-weight: 500;
+  color: #7f8c8d;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-tab-btn:hover {
+  color: #2c3e50;
+  background-color: #f8f9fa;
+}
+
+.config-tab-btn.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+  font-weight: 600;
+}
+
+.cfg-tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+.cfg-tab-content.hidden {
+  display: none;
+}
+
+/* Specific layout for General Tab */
+.config-split-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+@media (min-width: 600px) {
+  .config-split-layout {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+/* Adjust card margins inside tabs */
+.config-card {
+  margin-bottom: 0; 
+  height: 100%;
+}
+
+/* --- TV CARDS (New UI) --- */
+.tv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  margin-top: 15px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.tv-card-item {
+  background: linear-gradient(145deg, #2c3e50, #2c2c2c);
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  padding: 15px;
+  position: relative;
+  transition: all 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tv-card-item:hover {
+  transform: translateY(-2px);
+  border-color: #3498db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tv-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-name-display {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.tv-ip-display {
+  font-family: monospace;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.tv-icon-large {
+  font-size: 24px;
+  margin-right: 15px;
+  opacity: 0.8;
+}
+
+.tv-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Scrollbar for tv grid */
+.tv-grid::-webkit-scrollbar {
+  width: 6px;
+}
+.tv-grid::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}

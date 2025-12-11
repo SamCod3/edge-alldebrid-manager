@@ -37,33 +37,60 @@
         <!-- Headers & Actions -->
         <div class="config-header">
           <button id="config-back-btn" class="back-btn" title="Volver">← Volver</button>
-          <div class="header-text">
-            <h2>Configuración Jackett <span id="jackett-status" class="status-indicator" title="Desconocido">⚪</span>
-            </h2>
-            <p class="subtitle">Gestiona tu conexión y claves de acceso.</p>
+          <div class="header-text" style="margin-left:auto">
+            <span style="color:#666; font-size:12px">Configuración</span>
           </div>
         </div>
 
-        <div class="config-grid">
-          <!-- LEFT COLUMN -->
-          <div class="config-col-left" style="display:flex; flex-direction:column; gap:20px;">
-            <!-- Manual Connection -->
-            <div class="config-card login-card">
-              <h3>🔑 AllDebrid API</h3>
-              <p class="desc">Introduce tu API Key para vincular este dispositivo.</p>
+        <div class="config-tabs">
+          <button class="config-tab-btn active" data-target="cfg-general">General</button>
+          <button class="config-tab-btn" data-target="cfg-jackett">Buscador <span id="jackett-status"
+              class="status-indicator" title="Desconocido">⚪</span></button>
+          <button class="config-tab-btn" data-target="cfg-casting">Casting</button>
+        </div>
 
-              <div class="input-group">
-                <input type="text" id="api-key-input" placeholder="Pegar API Key..." autocomplete="off" />
-                <button id="save-key-btn" class="primary-btn">Guardar</button>
+        <div class="config-content-container">
+
+          <!-- GENERAL TAB (AllDebrid & Keys) -->
+          <div id="cfg-general" class="cfg-tab-content active">
+            <div class="config-split-layout">
+              <!-- API Key Input -->
+              <div class="config-card login-card">
+                <h3>🔑 AllDebrid API</h3>
+                <p class="desc">Introduce tu API Key para vincular este dispositivo.</p>
+                <div class="input-group">
+                  <input type="text" id="api-key-input" placeholder="Pegar API Key..." autocomplete="off" />
+                  <button id="save-key-btn" class="primary-btn">Guardar</button>
+                </div>
+                <div id="config-feedback" class="feedback-msg"></div>
+                <p class="help"><small>Perfil > API Key en alldebrid.com</small></p>
               </div>
-              <div id="config-feedback" class="feedback-msg"></div>
-              <p class="help"><small>Perfil > API Key en alldebrid.com</small></p>
-            </div>
 
-            <!-- Jackett Config -->
-            <div class="config-card jackett-card">
-              <h3>🧥 Jackett (Opcional)</h3>
-              <p class="desc">Conecta tu buscador local.</p>
+              <!-- Key Manager -->
+              <div id="key-manager-section" class="config-card keys-card">
+                <div class="card-head">
+                  <h3>Tus Claves Web</h3>
+                  <span id="km-refresh-btn" class="icon-btn" title="Recargar">🔄</span>
+                </div>
+                <div id="km-login-req" class="hidden login-alert">
+                  <a href="https://alldebrid.com/login" target="_blank">⚠️ Inicia sesión en AllDebrid</a> para
+                  gestionar tus claves.
+                </div>
+                <div id="km-loading" class="hidden loading-spinner">Cargando...</div>
+                <div id="km-list" class="keys-grid"></div>
+                <div class="new-key-row">
+                  <input type="text" id="km-new-name" placeholder="Nombre de nueva clave..." />
+                  <button id="km-create-btn" class="action-btn">➕ Crear</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- JACKETT TAB -->
+          <div id="cfg-jackett" class="cfg-tab-content hidden">
+            <div class="config-card jackett-card" style="max-width: 600px; margin: 0 auto;">
+              <h3>🧥 Configuración Jackett</h3>
+              <p class="desc">Conecta tu buscador local para encontrar torrents.</p>
 
               <label class="input-label">URL (ej. http://localhost:9117)</label>
               <input type="text" id="jackett-url-input" class="config-input" placeholder="http://127.0.0.1:9117" />
@@ -77,29 +104,32 @@
             </div>
           </div>
 
-          <!-- RIGHT: Key Manager -->
-          <div id="key-manager-section" class="config-card keys-card">
-            <div class="card-head">
-              <h3>Tus Claves Web</h3>
-              <span id="km-refresh-btn" class="icon-btn" title="Recargar">🔄</span>
-            </div>
+          <!-- CASTING TAB -->
+          <div id="cfg-casting" class="cfg-tab-content hidden">
+            <div class="config-card tv-card" style="max-width: 800px; margin: 0 auto;">
+              <div class="card-head">
+                <h3>📺 Mis TVs (DLNA)</h3>
+                <span class="status-indicator" style="font-size:12px; color:#aaa">Gestiona tus dispositivos</span>
+              </div>
 
-            <div id="km-login-req" class="hidden login-alert">
-              <a href="https://alldebrid.com/login" target="_blank">⚠️ Inicia sesión en AllDebrid</a> para gestionar tus
-              claves.
-            </div>
+              <!-- TV Grid List (moved to top) -->
+              <div id="tv-list" class="tv-grid">
+                <!-- TV items will go here -->
+              </div>
 
-            <div id="km-loading" class="hidden loading-spinner">Cargando...</div>
+              <!-- Add New TV (moved to bottom) -->
+              <div class="new-key-row" style="margin-top: 20px;">
+                <input type="text" id="tv-name-input" placeholder="Nombre (ej. Salon)" class="config-input"
+                  style="flex:1" />
+                <input type="text" id="tv-ip-input" placeholder="IP (ej. 192.168.1.50)" class="config-input"
+                  style="flex:2" />
+                <button id="add-tv-btn" class="action-btn">➕ Añadir TV</button>
+              </div>
+              <div id="tv-feedback" class="feedback-msg"></div>
 
-            <!-- GRID OF CARDS -->
-            <div id="km-list" class="keys-grid"></div>
-
-            <!-- CREATE NEW -->
-            <div class="new-key-row">
-              <input type="text" id="km-new-name" placeholder="Nombre de nueva clave..." />
-              <button id="km-create-btn" class="action-btn">➕ Crear</button>
             </div>
           </div>
+
         </div>
 
       </div>

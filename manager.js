@@ -2,6 +2,7 @@ import { Utils } from './utils.js';
 import { AllDebridAPI, DashboardAPI } from './api.js';
 import { JackettAPI } from './jackett.js';
 import { TrackerDropdown } from './tracker_dropdown.js';
+import { TVManager } from './tv_manager.js';
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,6 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const jackettKeyInput = document.getElementById('jackett-key-input');
   const saveJackettBtn = document.getElementById('save-jackett-btn');
   const jackettFeedback = document.getElementById('jackett-feedback');
+
+  // TV DOM
+  const tvNameInput = document.getElementById('tv-name-input');
+  const tvIpInput = document.getElementById('tv-ip-input');
+  const addTvBtn = document.getElementById('add-tv-btn');
+  const tvList = document.getElementById('tv-list');
+  const tvFeedback = document.getElementById('tv-feedback');
 
   const searchView = document.getElementById('search-view');
   const jSearchInput = document.getElementById('j-search-input');
@@ -52,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastSearchTerm = '';
 
   let trackerDropdown;
+  let tvManager;
 
   // --- JACKETT CONTROLLER ---
   const JackettController = {
@@ -299,10 +308,84 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Tab Listeners
+    // Initialize TV Manager
+    tvManager = new TVManager();
+    tvManager.load().then(renderTVList);
+
+    // Tab Listeners (Main View)
     tabDownloading.addEventListener('click', () => switchTab('downloading'));
     tabCompleted.addEventListener('click', () => switchTab('completed'));
     tabSearch.addEventListener('click', () => switchTab('search'));
+
+    // Tab Listeners (Config View)
+    document.querySelectorAll('.config-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // 1. UI Updates
+        document.querySelectorAll('.config-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // 2. Hide all content
+        document.querySelectorAll('.cfg-tab-content').forEach(c => c.classList.add('hidden'));
+
+        // 3. Show target content
+        const targetId = btn.dataset.target;
+        document.getElementById(targetId).classList.remove('hidden');
+      });
+    });
+  }
+
+  // TV Listeners
+  addTvBtn.addEventListener('click', async () => {
+    const name = tvNameInput.value.trim();
+    const ip = tvIpInput.value.trim();
+    try {
+      const tvs = await tvManager.addTV(name, ip);
+      renderTVList(tvs);
+      tvNameInput.value = '';
+      tvIpInput.value = '';
+      tvFeedback.textContent = '✅ Añadido';
+      setTimeout(() => tvFeedback.textContent = '', 2000);
+    } catch (e) {
+      alert(e.message);
+    }
+  });
+
+  function renderTVList() {
+    tvList.innerHTML = '';
+    const tvs = tvManager.getAll();
+
+    if (tvs.length === 0) {
+      tvList.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#666; padding:20px;">No hay TVs configuradas.<br>Añade una abajo 👇</div>';
+      return;
+    }
+
+    tvs.forEach(tv => {
+      const card = document.createElement('div');
+      card.className = 'tv-card-item';
+
+      card.innerHTML = `
+        <div style="display:flex; align-items:center;">
+            <div class="tv-icon-large">📺</div>
+            <div class="tv-info">
+                <div class="tv-name-display">${Utils.escapeHtml(tv.name)}</div>
+                <div class="tv-ip-display">${Utils.escapeHtml(tv.ip)}</div>
+            </div>
+        </div>
+        <div class="tv-actions">
+           <button class="btn-icon-small btn-delete" title="Eliminar">🗑️</button>
+        </div>
+      `;
+
+      // Event listener for delete
+      card.querySelector('.btn-delete').addEventListener('click', () => {
+        if (confirm(`¿Eliminar TV "${tv.name}"?`)) {
+          tvManager.removeTV(tv.id);
+          renderTVList();
+        }
+      });
+
+      tvList.appendChild(card);
+    });
   }
 
   // KM Listeners
@@ -722,7 +805,18 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
+      const actionsDiv = row.querySelector('.link-actions');
       const copyBtn = row.querySelector('.btn-copy');
+
+      if (isVideo) {
+        const castBtn = document.createElement('button');
+        castBtn.className = 'btn-cast';
+        castBtn.innerHTML = '📺';
+        castBtn.title = 'Enviar a TV (DLNA)';
+        castBtn.onclick = () => handleCast(linkObj);
+        actionsDiv.appendChild(castBtn);
+      }
+
       copyBtn.onclick = () => {
         navigator.clipboard.writeText(linkObj.link).then(() => {
           const original = copyBtn.innerHTML;
@@ -753,6 +847,43 @@ document.addEventListener('DOMContentLoaded', () => {
         alert((data.error && data.error.message) ? data.error.message : 'Error al reiniciar');
       }
     } catch (e) { console.error(e); alert('Error de red'); }
+  }
+
+  async function handleCast(linkObj) {
+    if (tvManager.tvs.length === 0) {
+      alert("No hay TVs configuradas. Ve a Configuración.");
+      return;
+    }
+
+    let targetTv = tvManager.tvs[0];
+    if (tvManager.tvs.length > 1) {
+      // Simple selection for now
+      const names = tvManager.tvs.map((tv, i) => `${i + 1}: ${tv.name} (${tv.ip})`).join('\n');
+      const selection = prompt(`Selecciona TV:\n${names}`, "1");
+      if (!selection) return;
+      const index = parseInt(selection) - 1;
+      if (index >= 0 && index < tvManager.tvs.length) {
+        targetTv = tvManager.tvs[index];
+      } else {
+        return alert("Selección inválida");
+      }
+    }
+
+    const btn = document.activeElement;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳';
+
+    const res = await tvManager.castToTV(linkObj.link, targetTv.ip);
+
+    if (res.status === 'success') {
+      btn.innerHTML = '▶️';
+      btn.title = 'Reproduciendo en ' + targetTv.name;
+      setTimeout(() => { btn.innerHTML = originalText; }, 3000);
+    } else {
+      btn.innerHTML = '❌';
+      alert("Error al enviar: " + res.error);
+      setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+    }
   }
 
   async function deleteMagnet(id) {
