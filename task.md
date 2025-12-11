@@ -1,0 +1,14 @@
+
+- [x] Verify pending changes in `jackett.js` and `manager.js`
+- [x] Verify `tracker_dropdown.js` integration
+- [x] Commit changes to `refactor/cleanup`
+- [x] Merge into `main`
+- [/] Implement Jackett connectivity check and status indicator
+    - [x] Config view indicator
+    - [x] Search tab indicator
+    - [x] Disable Search tab if offline/invalid
+    - [x] Link refresh button to status check
+    - [x] Fix: Search tab enabled on fresh install without Jackett config
+- [x] Refactor Jackett integration code
+    - [x] Clean up `manager.js` (extract logic/constants)
+    - [x] Organize `style.css`
