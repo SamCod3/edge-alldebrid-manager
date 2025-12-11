@@ -60,10 +60,13 @@ export class TrackerDropdown {
 
     updateLabel() {
         const checked = Array.from(this.list.querySelectorAll('input:checked'));
-        if (checked.length === 1 && checked[0].value === 'all') {
-            this.btn.textContent = "Seleccionar Trackers (Todos)";
+
+        // Reset Text
+        if (checked.length === 0 || (checked.length === 1 && checked[0].value === 'all')) {
+            this.btn.innerHTML = `<span>Seleccionar Trackers (Todos)</span>`;
         } else {
-            this.btn.textContent = `Seleccionados (${checked.length})`;
+            // Show count badge
+            this.btn.innerHTML = `<span>Trackers</span> <span style="background:var(--primary-color); padding:2px 8px; border-radius:12px; font-size:0.8em; color:#fff">${checked.length}</span>`;
         }
     }
 

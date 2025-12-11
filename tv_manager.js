@@ -39,12 +39,17 @@ export class TVManager {
      * @param {string} name Friendly name
      * @param {string} ip IP Address
      */
-    async addTV(name, ip) {
+    async addTV(name, ip, type = 'dlna', port = 8080) {
         if (!name || !ip) throw new Error("Nombre e IP son obligatorios.");
-        // Basic IP validation
         if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) throw new Error("Formato de IP inválido.");
 
-        this.tvs.push({ id: Date.now().toString(), name, ip });
+        this.tvs.push({
+            id: Date.now().toString(),
+            name,
+            ip,
+            type: type,
+            port: parseInt(port) || 8080
+        });
         await this.save();
         return this.tvs;
     }
@@ -71,7 +76,54 @@ export class TVManager {
      * @param {string} videoUrl Direct URL to the video file
      * @param {string} tvIp TV IP Address
      */
-    async castToTV(videoUrl, tvIp) {
+    async castToTV(videoUrl, tv) {
+        if (tv.type === 'kodi') {
+            return this._castToKodi(videoUrl, tv);
+        } else {
+            return this._castToDLNA(videoUrl, tv.ip);
+        }
+    }
+
+    async _castToKodi(videoUrl, tv) {
+        const url = `http://${tv.ip}:${tv.port}/jsonrpc`;
+        const headers = { 'Content-Type': 'application/json' };
+
+        // Helper to send request
+        const send = async (method, params = {}, id = 1) => {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ jsonrpc: "2.0", method, params, id })
+            });
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+            return await res.json();
+        };
+
+        try {
+            // 1. Check if Playing
+            const activeRes = await send("Player.GetActivePlayers");
+            const isPlaying = activeRes.result && activeRes.result.length > 0;
+
+            if (isPlaying) {
+                // 2a. Queue (Playlist.Add)
+                console.log(`[Cast] Kodi active, queuing to playlist 1...`);
+                // Playlist 1 is typically Video
+                await send("Playlist.Add", { playlistid: 1, item: { file: videoUrl } });
+                return { status: 'success', queued: true };
+            } else {
+                // 2b. Play Immediately (Player.Open)
+                console.log(`[Cast] Kodi idle, playing immediately...`);
+                await send("Player.Open", { item: { file: videoUrl } });
+                return { status: 'success', queued: false };
+            }
+        } catch (error) {
+            console.error("[Cast] Kodi Error:", error);
+            return { status: 'error', error: error.message };
+        }
+    }
+
+    async _castToDLNA(videoUrl, tvIp) {
+        // ... existing castToTV code ...
         // 1. Generate Metadata
         const metadata = this._generateMetadata(videoUrl);
 
@@ -88,8 +140,7 @@ export class TVManager {
             console.log(`[Cast] Setting URI on ${tvIp}...`);
             await this._sendSoapRequest(controlUrl, 'SetAVTransportURI', setUriBody);
 
-            // 3. Construct Play action (Best effort)
-            // Some TVs auto-play or return errors on Play if not ready, but if SetURI worked, we count it as success.
+            // 3. Construct Play action
             try {
                 const playBody = this._buildSoapBody('Play', {
                     InstanceID: '0',
@@ -98,12 +149,9 @@ export class TVManager {
                 console.log(`[Cast] Sending Play command to ${tvIp}...`);
                 await this._sendSoapRequest(controlUrl, 'Play', playBody);
             } catch (playError) {
-                // Error 701: Transition not available.
-                // This means the TV is already playing/buffering (auto-play), so the Play command is redundant.
-                // We ignore this specific error to avoid confusing the user.
                 const msg = playError.message || playError.toString();
                 if (!msg.includes('701') && !msg.includes('Transition not available')) {
-                    console.warn("[Cast] Play command warning (ignoring as SetURI succeeded):", playError);
+                    console.warn("[Cast] Play warning:", playError);
                 }
             }
 
