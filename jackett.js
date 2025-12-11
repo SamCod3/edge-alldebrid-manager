@@ -45,6 +45,15 @@ export const JackettAPI = {
         }
     },
 
+    async testConnection(url, apiKey) {
+        try {
+            const res = await this.getIndexers(url, apiKey);
+            return res.status === 'success';
+        } catch (e) {
+            return false;
+        }
+    },
+
     async search(url, apiKey, query, indexers = 'all') {
         const cleanUrl = url.replace(/\/$/, "");
 

@@ -140,6 +140,14 @@ h1 {
   /* Mantiene naranja si está seleccionada */
 }
 
+/* Disabled Tab */
+.tab-item:disabled,
+.tab-item.disabled-tab {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(100%);
+}
+
 .tab-item.has-active::after {
   content: '';
   display: inline-block;
@@ -466,6 +474,14 @@ h1 {
   color: #fff;
   margin: 0;
   font-size: 22px;
+}
+
+/* Status Indicator */
+.status-indicator {
+  font-size: 0.8em;
+  margin-left: 10px;
+  cursor: help;
+  vertical-align: middle;
 }
 
 .config-header .subtitle {
@@ -986,3 +1002,4 @@ select.config-input option {
 .hidden {
   display: none !important;
 }
+

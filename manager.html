@@ -26,7 +26,8 @@
       <div class="tabs">
         <button id="tab-completed" class="tab-item active">✅ Completados</button>
         <button id="tab-downloading" class="tab-item">⬇️ Descargando</button>
-        <button id="tab-search" class="tab-item">🔍 Buscar</button>
+        <button id="tab-search" class="tab-item">🔍 Buscar <span id="jackett-status-tab" class="status-indicator"
+            title="Jackett Status" style="margin-left:5px; font-size:0.8em; display:none">⚪</span></button>
       </div>
     </header>
 
@@ -37,7 +38,8 @@
         <div class="config-header">
           <button id="config-back-btn" class="back-btn" title="Volver">← Volver</button>
           <div class="header-text">
-            <h2>Configuración</h2>
+            <h2>Configuración Jackett <span id="jackett-status" class="status-indicator" title="Desconocido">⚪</span>
+            </h2>
             <p class="subtitle">Gestiona tu conexión y claves de acceso.</p>
           </div>
         </div>

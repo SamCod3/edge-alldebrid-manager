@@ -51,36 +51,246 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeTab = 'completed';
   let lastSearchTerm = '';
 
-  let jackettConfig = { url: '', key: '' };
-
   let trackerDropdown;
+
+  // --- JACKETT CONTROLLER ---
+  const JackettController = {
+    config: { url: '', key: '' },
+    STATUS: {
+      CHECKING: { emoji: '🟡', text: 'Comprobando conexión...' },
+      ONLINE: { emoji: '🟢', text: 'Online' },
+      OFFLINE: { emoji: '🔴', text: 'Offline / Error de conexión / API Key inválida' },
+      NONE: { emoji: '⚪', text: 'No configurado (Requiere URL y API Key)' }
+    },
+
+    init() {
+      // Listeners
+      saveJackettBtn.addEventListener('click', () => this.saveConfig());
+      jSearchBtn.addEventListener('click', () => this.search());
+      jSearchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.search(); });
+
+      // Load Config
+      chrome.storage.local.get(['jackett_url', 'jackett_apikey'], (result) => {
+        if (result.jackett_url) {
+          this.config.url = result.jackett_url;
+          jackettUrlInput.value = result.jackett_url;
+        } else {
+          const defaultUrl = 'http://127.0.0.1:9117/';
+          this.config.url = defaultUrl;
+          jackettUrlInput.value = defaultUrl;
+        }
+
+        if (result.jackett_apikey) {
+          this.config.key = result.jackett_apikey;
+          jackettKeyInput.value = result.jackett_apikey;
+          this.loadTrackers();
+        }
+
+        this.checkStatus();
+      });
+    },
+
+    saveConfig() {
+      const url = jackettUrlInput.value.trim();
+      const key = jackettKeyInput.value.trim();
+
+      chrome.storage.local.set({ jackett_url: url, jackett_apikey: key }, () => {
+        this.config = { url, key };
+        jackettFeedback.textContent = "✅ Guardado";
+        setTimeout(() => jackettFeedback.textContent = '', 2000);
+        this.loadTrackers();
+        this.checkStatus();
+      });
+    },
+
+    setStatus(state, isOnline = false) {
+      const statusEl = document.getElementById('jackett-status');
+      const tabStatusEl = document.getElementById('jackett-status-tab');
+      // Update Config Indicator
+      if (statusEl) {
+        statusEl.textContent = state.emoji;
+        statusEl.title = state.text;
+      }
+      // Update Tab Indicator
+      if (tabStatusEl) {
+        tabStatusEl.textContent = state.emoji;
+        tabStatusEl.title = state.text;
+        // Hide if not configured
+        tabStatusEl.style.display = (state.emoji === '⚪') ? 'none' : 'inline';
+      }
+      // Update Tab State
+      if (tabSearch) {
+        tabSearch.disabled = !isOnline;
+        if (!isOnline) {
+          tabSearch.classList.add('disabled-tab');
+          if (activeTab === 'search') switchTab('completed');
+        } else {
+          tabSearch.classList.remove('disabled-tab');
+        }
+      }
+    },
+
+    async checkStatus() {
+      this.setStatus(this.STATUS.CHECKING, false);
+
+      if (!this.config.url || !this.config.key) {
+        this.setStatus(this.STATUS.NONE, false);
+        return;
+      }
+
+      const isOnline = await JackettAPI.testConnection(this.config.url, this.config.key);
+      if (isOnline) {
+        this.setStatus(this.STATUS.ONLINE, true);
+      } else {
+        this.setStatus(this.STATUS.OFFLINE, false);
+      }
+    },
+
+    async loadTrackers() {
+      if (!this.config.url || !this.config.key) return;
+      const res = await JackettAPI.getIndexers(this.config.url, this.config.key);
+      if (res.status === 'success') {
+        trackerDropdown.render(res.indexers);
+      } else {
+        console.warn("Error loading indexers:", res.error);
+        trackerDropdown.render([]);
+      }
+    },
+
+    async search() {
+      const query = jSearchInput.value.trim();
+      if (!query) return;
+      if (!this.config.url || !this.config.key) return alert("Configura Jackett primero en Configuración.");
+
+      jLoading.classList.remove('hidden');
+      jResults.innerHTML = '';
+
+      const trackers = trackerDropdown.getSelected();
+      const res = await JackettAPI.search(this.config.url, this.config.key, query, trackers);
+      jLoading.classList.add('hidden');
+
+      if (res.status === 'success') {
+        this.renderResults(res.results);
+      } else {
+        jResults.innerHTML = `<div style="padding:20px; color:#e74c3c">Error: ${res.error}</div>`;
+      }
+    },
+
+    renderResults(results) {
+      if (!results || results.length === 0) {
+        jResults.innerHTML = '<div style="padding:20px; color:#777; text-align:center">No se encontraron resultados.</div>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.className = 'j-table';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th width="80">Published</th>
+            <th width="120">Tracker</th>
+            <th>Name</th>
+            <th width="80">Size</th>
+            <th width="100">Category</th>
+            <th width="60">Seeds</th>
+            <th width="60">Action</th>
+          </tr>
+        </thead>
+        <tbody id="j-table-body"></tbody>
+      `;
+
+      const tbody = table.querySelector('#j-table-body');
+
+      results.forEach(item => {
+        const tr = document.createElement('tr');
+        const date = new Date(item.pubDate);
+        const dateStr = date.toISOString().split('T')[0];
+
+        tr.innerHTML = `
+              <td class="j-col-date">${dateStr}</td>
+              <td class="j-col-tracker"><span class="tracker-tag">${item.indexer}</span></td>
+              <td class="j-col-name">
+                 <a href="#" class="j-link-title" title="${item.title}">${item.title.replace(/\[?free\]?/gi, '').trim()}</a>
+              </td>
+              <td class="j-col-size">${Utils.formatBytes(item.size)}</td>
+              <td class="j-col-cat">${item.category}</td>
+              <td class="j-col-seeds">${item.seeders}</td>
+              <td class="j-col-action"></td>
+            `;
+
+        const btn = document.createElement('button');
+        btn.className = 'j-btn-icon';
+        btn.innerHTML = '⚡';
+        btn.title = "Enviar a AllDebrid";
+        btn.onclick = async (e) => {
+          e.preventDefault();
+          const status = await this.download(item);
+          if (status) {
+            btn.innerHTML = '✔';
+            btn.classList.add('sent');
+            btn.disabled = true;
+            if (status === 'ready') {
+              tr.classList.add('j-row-sent-ready');
+              btn.title = "Enviado a Descargados (Instantáneo)";
+            } else {
+              tr.classList.add('j-row-sent-downloading');
+              btn.title = "Enviado a Cola de Descarga";
+            }
+          }
+        };
+
+        tr.querySelector('.j-col-action').appendChild(btn);
+        tbody.appendChild(tr);
+      });
+
+      jResults.innerHTML = '';
+      jResults.appendChild(table);
+    },
+
+    async download(item) {
+      if (!confirm(`¿Enviar "${item.title}" a AllDebrid?`)) return false;
+      const link = item.link;
+
+      try {
+        let res;
+        if (link.startsWith('magnet:')) {
+          res = await AllDebridAPI.uploadMagnet(currentApiKey, link);
+        } else {
+          const fileRes = await fetch(link);
+          if (!fileRes.ok) throw new Error(`Error descargando torrent (${fileRes.status})`);
+          const blob = await fileRes.blob();
+          res = await AllDebridAPI.uploadTorrentFile(currentApiKey, blob);
+        }
+
+        if (res && res.status === 'success') {
+          fetchFiles(currentApiKey).catch(() => { });
+          const info = (res.data.magnets && res.data.magnets[0]) || (res.data.files && res.data.files[0]);
+          return (info && info.ready) ? 'ready' : 'downloading';
+        } else {
+          alert("Error AllDebrid: " + (res.error?.message || "Desconocido"));
+          return false;
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Error de red o CORS al enviar.");
+        return false;
+      }
+    }
+  };
+
 
   // --- Inicialización ---
   init();
 
   function init() {
-    // ... (keep init content)
     // Instantiate Custom Dropdown
     trackerDropdown = new TrackerDropdown('tracker-dropdown-btn', 'tracker-dropdown-list');
 
-    chrome.storage.local.get(['alldebrid_apikey', 'alldebrid_username', 'jackett_url', 'jackett_apikey'], (result) => {
-      // ... (keep existing storage logic)
-      // Load Jackett Config
-      if (result.jackett_url) {
-        jackettConfig.url = result.jackett_url;
-        jackettUrlInput.value = result.jackett_url;
-      } else {
-        // Default
-        const defaultUrl = 'http://127.0.0.1:9117/';
-        jackettConfig.url = defaultUrl;
-        jackettUrlInput.value = defaultUrl;
-      }
-      if (result.jackett_apikey) {
-        jackettConfig.key = result.jackett_apikey;
-        jackettKeyInput.value = result.jackett_apikey;
-        loadJackettTrackers(); // NEW: Load on init if config exists
-      }
+    // Initialize Jackett
+    JackettController.init();
 
+    // Check AllDebrid Auth
+    chrome.storage.local.get(['alldebrid_apikey', 'alldebrid_username'], (result) => {
       if (result.alldebrid_apikey) {
         currentApiKey = result.alldebrid_apikey;
         showFilesView(result.alldebrid_apikey, result.alldebrid_username);
@@ -89,16 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // ... (keep listeners)
     // Tab Listeners
     tabDownloading.addEventListener('click', () => switchTab('downloading'));
     tabCompleted.addEventListener('click', () => switchTab('completed'));
     tabSearch.addEventListener('click', () => switchTab('search'));
-
-    // Jackett Listeners
-    saveJackettBtn.addEventListener('click', saveJackettConfig);
-    jSearchBtn.addEventListener('click', executeJackettSearch);
-    jSearchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeJackettSearch(); });
   }
 
   // KM Listeners
@@ -107,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (configBackBtn) configBackBtn.addEventListener('click', () => showFilesView(currentApiKey));
 
   async function handleCreateKey() {
-    // ... (keep handleCreateKey)
     const name = kmNewName.value.trim();
     if (!name) return;
     const originalText = kmCreateBtn.textContent;
@@ -131,12 +334,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     activeTab = tab;
 
-    // Reset Views
     filesView.classList.add('hidden');
     searchView.classList.add('hidden');
     configView.classList.add('hidden');
 
-    // Reset Tab Styles
     tabDownloading.classList.remove('active');
     tabCompleted.classList.remove('active');
     tabSearch.classList.remove('active');
@@ -144,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tab === 'search') {
       searchView.classList.remove('hidden');
       tabSearch.classList.add('active');
-      // Hide global SEARCH bar when in Jackett Search
       document.querySelector('.search-bar-container').style.display = 'none';
     } else {
       filesView.classList.remove('hidden');
@@ -154,179 +354,18 @@ document.addEventListener('DOMContentLoaded', () => {
         tabDownloading.classList.add('active');
         fileListActive.classList.remove('hidden');
         fileListCompleted.classList.add('hidden');
-        searchInput.value = ''; // Clear to show placeholder
-        searchInput.disabled = true; // Disable local search for downloading
+        searchInput.value = '';
+        searchInput.disabled = true;
         searchInput.placeholder = "Filtro desactivado en Descargas";
       } else {
         tabCompleted.classList.add('active');
         fileListActive.classList.add('hidden');
         fileListCompleted.classList.remove('hidden');
-        searchInput.disabled = false; // Enable for completed
+        searchInput.disabled = false;
         searchInput.placeholder = "🔍 Filtrar completados...";
-        if (lastSearchTerm) searchInput.value = lastSearchTerm; // Restore
+        if (lastSearchTerm) searchInput.value = lastSearchTerm;
       }
-      triggerSearch(); // Local filter
-    }
-  }
-
-  // --- JACKETT LOGIC ---
-
-  function saveJackettConfig() {
-    const url = jackettUrlInput.value.trim();
-    const key = jackettKeyInput.value.trim();
-
-    chrome.storage.local.set({ jackett_url: url, jackett_apikey: key }, () => {
-      jackettConfig = { url, key };
-      jackettFeedback.textContent = "✅ Guardado";
-      setTimeout(() => jackettFeedback.textContent = '', 2000);
-      loadJackettTrackers(); // NEW: Reload trackers when config saved
-    });
-  }
-
-  async function loadJackettTrackers() {
-    if (!jackettConfig.url || !jackettConfig.key) return;
-
-    const res = await JackettAPI.getIndexers(jackettConfig.url, jackettConfig.key);
-    if (res.status === 'success') {
-      trackerDropdown.render(res.indexers);
-    } else {
-      console.warn("Error loading indexers:", res.error);
-      trackerDropdown.render([]);
-    }
-  }
-
-  async function executeJackettSearch() {
-    const query = jSearchInput.value.trim();
-    if (!query) return;
-    if (!jackettConfig.url || !jackettConfig.key) return alert("Configura Jackett primero en Configuración.");
-
-    jLoading.classList.remove('hidden');
-    jResults.innerHTML = '';
-
-    const trackers = trackerDropdown.getSelected();
-
-    const res = await JackettAPI.search(jackettConfig.url, jackettConfig.key, query, trackers);
-    jLoading.classList.add('hidden');
-
-    if (res.status === 'success') {
-      renderJackettResults(res.results);
-    } else {
-      jResults.innerHTML = `<div style="padding:20px; color:#e74c3c">Error: ${res.error}</div>`;
-    }
-  }
-
-  function renderJackettResults(results) {
-    if (!results || results.length === 0) {
-      jResults.innerHTML = '<div style="padding:20px; color:#777; text-align:center">No se encontraron resultados.</div>';
-      return;
-    }
-
-    const table = document.createElement('table');
-    table.className = 'j-table';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th width="80">Published</th>
-          <th width="120">Tracker</th>
-          <th>Name</th>
-          <th width="80">Size</th>
-          <th width="100">Category</th>
-          <th width="60">Seeds</th>
-          <th width="60">Action</th>
-        </tr>
-      </thead>
-      <tbody id="j-table-body"></tbody>
-    `;
-
-    const tbody = table.querySelector('#j-table-body');
-
-    results.forEach(item => {
-      const tr = document.createElement('tr');
-
-      const date = new Date(item.pubDate);
-      const timeAgo = Utils.timeAgo ? Utils.timeAgo(date) : date.toLocaleDateString(); // Fallback if Utils.timeAgo not present, or write simple logic
-      // Actually let's just use simple date for now or add timeAgo logic. 
-      // I'll stick to a simple formatted date for consistency.
-      const dateStr = date.toISOString().split('T')[0];
-
-      tr.innerHTML = `
-            <td class="j-col-date">${dateStr}</td>
-            <td class="j-col-tracker"><span class="tracker-tag">${item.indexer}</span></td>
-            <td class="j-col-name">
-               <a href="#" class="j-link-title" title="${item.title}">${item.title.replace(/\[?free\]?/gi, '').trim()}</a>
-            </td>
-            <td class="j-col-size">${Utils.formatBytes(item.size)}</td>
-            <td class="j-col-cat">${item.category}</td>
-            <td class="j-col-seeds">${item.seeders}</td>
-            <td class="j-col-action"></td>
-          `;
-
-      const btn = document.createElement('button');
-      btn.className = 'j-btn-icon';
-      btn.innerHTML = '⚡';
-      btn.title = "Enviar a AllDebrid";
-      btn.onclick = async (e) => {
-        e.preventDefault();
-        const status = await downloadFromJackett(item);
-        if (status) { // 'ready' or 'downloading'
-          btn.innerHTML = '✔';
-          btn.classList.add('sent');
-          btn.disabled = true;
-
-          if (status === 'ready') {
-            tr.classList.add('j-row-sent-ready');
-            btn.title = "Enviado a Descargados (Instantáneo)";
-          } else {
-            tr.classList.add('j-row-sent-downloading');
-            btn.title = "Enviado a Cola de Descarga";
-          }
-        }
-      };
-
-      tr.querySelector('.j-col-action').appendChild(btn);
-      tbody.appendChild(tr);
-    });
-
-    jResults.innerHTML = '';
-    jResults.appendChild(table);
-  }
-
-  async function downloadFromJackett(item) {
-    // Keep confirm for safety, user can request to remove it later
-    if (!confirm(`¿Enviar "${item.title}" a AllDebrid?`)) return false;
-
-    const link = item.link;
-
-    try {
-      let res;
-      if (link.startsWith('magnet:')) {
-        res = await AllDebridAPI.uploadMagnet(currentApiKey, link);
-      } else {
-        const fileRes = await fetch(link);
-        if (!fileRes.ok) throw new Error(`Error descargando torrent (${fileRes.status})`);
-        const blob = await fileRes.blob();
-        res = await AllDebridAPI.uploadTorrentFile(currentApiKey, blob);
-      }
-
-      if (res && res.status === 'success') {
-        fetchFiles(currentApiKey).catch(() => { });
-
-        // Check if ready (cached)
-        // uploadMagnet returns data.magnets, uploadTorrentFile returns data.files
-        const info = (res.data.magnets && res.data.magnets[0]) || (res.data.files && res.data.files[0]);
-
-        if (info && info.ready) {
-          return 'ready';
-        }
-        return 'downloading';
-      } else {
-        alert("Error AllDebrid: " + (res.error?.message || "Desconocido"));
-        return false;
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error de red o CORS al enviar.");
-      return false;
+      triggerSearch();
     }
   }
 
@@ -334,7 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
   searchInput.addEventListener('input', triggerSearch);
 
   function triggerSearch() {
-    // ... (Local search logic unchanged)
     const term = searchInput.value.toLowerCase();
     const currentList = activeTab === 'downloading' ? fileListActive : fileListCompleted;
     const items = currentList.querySelectorAll('.file-item');
@@ -412,14 +450,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // KM "Use" button modification
-  // We need to find renderKeys and update the click handler to use checkAndSaveKey
-  // Instead of modifying renderKeys here (it is further down), we rely on 
-  // replacing the implementation logic if possible OR assuming renderKeys calls saveKeyBtn.click()
-  // which NOW calls checkAndSaveKey via the listener.
-
   settingsBtn.addEventListener('click', showConfigView);
-  refreshBtn.addEventListener('click', () => { if (currentApiKey) fetchFiles(currentApiKey); });
+  refreshBtn.addEventListener('click', () => {
+    if (currentApiKey) fetchFiles(currentApiKey);
+    JackettController.checkStatus(); // NEW: Refresh Jackett status
+  });
 
   function showFilesView(apiKey, username = 'Usuario') {
     configView.classList.add('hidden');
@@ -427,10 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filesView.classList.remove('hidden');
     document.body.classList.remove('config-active');
 
-    // Ensure tabs are visible (removed via CSS in config mode, but need to be visible here)
-    // The CSS 'body.config-active' handles the hiding. Removing it shows them.
-    // ALSO need to ensure we are in a valid tab
-    activeTab = 'completed'; // Default to completed on return
+    activeTab = 'completed';
     switchTab(activeTab);
 
     if (username) userWelcome.textContent = `${username}`;
@@ -442,24 +474,8 @@ document.addEventListener('DOMContentLoaded', () => {
     filesView.classList.add('hidden');
     searchView.classList.add('hidden');
     document.body.classList.add('config-active');
-
-    // Always Try to load Keys when entering config view
     loadDashboardKeys();
   }
-
-  // ... (rest of functions: loadDashboardKeys, renderKeys, fetchFiles, processAndRender, renderList, toggleDetails... UNCHANGED)
-  // We include them here implicitly via the Replacement logic or just keep them if replacing block.
-  // NOTE: The tool replaces strictly what is defined. 
-  // I will assume the rest follows the standard pattern.
-  // Since I am replacing the WHOLE file structure logic, I need to be careful not to delete the bottom functions.
-  // I will target the imports and the init block, and then append the new logic. 
-  // ACTUALLY, "manager.js" structure is complex. I will try to be surgical.
-
-  // STRATEGY: 
-  // 1. Target Top part (Imoports + DOM + Vars + Init)
-  // 2. Add jackett functions at the end of file or suitably placed.
-
-  /* ... (Existing fetchFiles/renderList implementations) ... */
 
   async function loadDashboardKeys() {
     kmList.innerHTML = '';
@@ -477,7 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderKeys(keys) {
-    // ... (matches existing)
     if (keys.length === 0) {
       kmList.innerHTML = '<div style="color:#777; padding:20px; grid-column: 1/-1; text-align:center;">No se encontraron claves.</div>';
       return;
@@ -503,7 +518,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           `;
 
-      // Logic
       div.querySelector('.btn-use-key').onclick = () => {
         apiKeyInput.value = k.key;
         saveKeyBtn.click();
@@ -533,7 +547,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchFiles(apiKey) {
-    // ... (Matches existing)
     fileListActive.innerHTML = '';
     fileListCompleted.innerHTML = '';
     loadingDiv.classList.remove('hidden');
@@ -547,7 +560,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.status === 'success') {
         processAndRender(data.data.magnets);
       } else {
-        // Only redirect if explicitly an AUTH error
         if (data.error && data.error.code && data.error.code.includes('AUTH')) {
           console.warn('Auth Error:', data.error);
           showConfigView();
@@ -563,9 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function processAndRender(magnets) {
-    // ... (Matches existing)
     if (!magnets || magnets.length === 0) {
-      // Show empty state in both
       fileListActive.innerHTML = '<li style="text-align:center; padding:40px; color:#555">No hay descargas activas.</li>';
       fileListCompleted.innerHTML = '<li style="text-align:center; padding:40px; color:#555">No hay historial.</li>';
       filesCount.textContent = '0';
@@ -573,15 +583,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     filesCount.textContent = `${magnets.length}`;
-
-    // Filter
     const activeMagnets = magnets.filter(m => m.statusCode !== 4);
     const completedMagnets = magnets.filter(m => m.statusCode === 4);
 
-    // Update Tab Indicator
     if (activeMagnets.length > 0) {
       tabDownloading.textContent = `⬇️ Descargando (${activeMagnets.length})`;
-      tabDownloading.classList.add('has-active'); // Optional styling hook
+      tabDownloading.classList.add('has-active');
     } else {
       tabDownloading.textContent = `⬇️ Descargando`;
       tabDownloading.classList.remove('has-active');
@@ -589,9 +596,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderList(activeMagnets, fileListActive, 'active');
     renderList(completedMagnets, fileListCompleted, 'completed');
-
-    // Trigger initial visibility
-    // switchTab(activeTab); // Don't auto switch here, keep current tab
   }
 
   function renderList(items, container, type) {
@@ -603,15 +607,12 @@ document.addEventListener('DOMContentLoaded', () => {
     items.forEach(magnet => {
       const li = document.createElement('li');
       li.className = 'file-item';
-      li.dataset.name = magnet.filename; // Search helper
+      li.dataset.name = magnet.filename;
 
       const isReady = magnet.statusCode === 4;
-
-      // Basic Row
       const mainRow = document.createElement('div');
       mainRow.className = 'file-row-main';
 
-      // Determine Content based on Type
       if (type === 'active') {
         const perc = (magnet.size > 0) ? ((magnet.downloaded / magnet.size) * 100).toFixed(1) : 0;
         const speed = magnet.downloadSpeed ? Utils.formatBytes(magnet.downloadSpeed) + '/s' : '0 B/s';
@@ -620,8 +621,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mainRow.innerHTML = `
           <div class="file-info">
              <span class="file-name" style="cursor:default">${magnet.filename}</span>
-             
-             <!-- Progress Block -->
              <div class="progress-section">
                 <div class="progress-header">
                    <span>${Utils.formatBytes(magnet.downloaded)} / ${Utils.formatBytes(magnet.size)}</span>
@@ -643,7 +642,6 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         `;
       } else {
-        // Completed View
         mainRow.innerHTML = `
           <div class="file-info">
               <span class="file-name" title="Clic para ver enlaces">${magnet.filename}</span>
@@ -656,7 +654,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }
 
-      // Logic
       const fileInfoBlock = mainRow.querySelector('.file-info');
       const deleteBtn = mainRow.querySelector('.btn-delete');
 
@@ -668,7 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (isReady && magnet.links && magnet.links.length > 0) {
-        // Only clickable in completed view effectively
         const nameSpan = mainRow.querySelector('.file-name');
         nameSpan.onclick = () => toggleDetails(li, magnet.links);
       }
@@ -678,7 +674,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- DESPLIEGUE ---
   async function toggleDetails(parentElement, links) {
     const existingBox = parentElement.querySelector('.links-box');
     if (existingBox) { existingBox.remove(); return; }
@@ -751,9 +746,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await AllDebridAPI.restartMagnet(currentApiKey, id);
       if (data.status === 'success') {
-        // Force switch to active tab to see progress
         activeTab = 'downloading';
-        switchTab('downloading'); // Update UI active state
+        switchTab('downloading');
         fetchFiles(currentApiKey);
       } else {
         alert((data.error && data.error.message) ? data.error.message : 'Error al reiniciar');
