@@ -1,10 +1,10 @@
 
 export const JackettAPI = {
-    async getIndexers(url, apiKey) {
+    async getIndexers(url, apiKey, silent = false) {
         // Endpoint: /api/v2.0/indexers/all/results/torznab/api?apikey=...&t=indexers
         // We use 'all' to get the configured list.
         const cleanUrl = url.replace(/\/$/, "");
-        const endpoint = `${cleanUrl}/api/v2.0/indexers/all/results/torznab/api?apikey=${apiKey}&t=indexers&caps=1&configured=true`;
+        const endpoint = `${cleanUrl}/api/v2.0/indexers/all/results/torznab/api?apikey=${apiKey}&t=indexers&caps=1&configured=true&_=${Date.now()}`;
 
         try {
             const res = await fetch(endpoint);
@@ -40,16 +40,20 @@ export const JackettAPI = {
             }
             return { status: 'success', indexers };
         } catch (e) {
-            console.error(e);
+            if (!silent) console.error(e);
             return { error: e.message };
         }
     },
 
     async testConnection(url, apiKey) {
         try {
-            const res = await this.getIndexers(url, apiKey);
+            // console.log("Testing connection to:", url); // Debug logs removed
+            // Pass true for silent to avoid console spam when offline
+            const res = await this.getIndexers(url, apiKey, true);
+            // console.log("Connection result:", res); // Debug logs removed
             return res.status === 'success';
         } catch (e) {
+            // console.error("Test Connection Failed:", e); // Debug logs removed
             return false;
         }
     },

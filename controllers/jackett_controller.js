@@ -89,16 +89,17 @@ export class JackettController {
             this.els.tabSearch.disabled = !isOnline;
             if (!isOnline) {
                 this.els.tabSearch.classList.add('disabled-tab');
-                // Use dependency to switch tab if current is search
-                // We assume the caller handles the active tab check or we pass activeTab in context
-                // For simplicity, we just trigger the switch logic if needed
-                // But accessing activeTab global is bad. 
-                // Suggestion: The dependency switchTab should handle "if current is search then switch"
-                // OR we just expose the state and let main handle it.
-                // For now, let's call the generic switch dependency which might force a switch
-                // this.deps.switchTab('completed'); // forceful switch might be annoying on load
+                this.els.tabSearch.style.pointerEvents = 'none';
+
+                // If currently active, switch away
+                if (this.els.tabSearch.classList.contains('active')) {
+                    // We prefer switching to 'completed' as fallback
+                    this.deps.switchTab('completed');
+                    Toast.show("Jackett desconectado. Pestaña de búsqueda deshabilitada.", 'warning');
+                }
             } else {
                 this.els.tabSearch.classList.remove('disabled-tab');
+                this.els.tabSearch.style.pointerEvents = 'auto';
             }
         }
     }

@@ -71,7 +71,7 @@ export class CastController {
 
             this.tvNameInput.value = '';
             this.tvIpInput.value = '';
-            Toast.show('✅ TV Añadida correctamente', 'success');
+            Toast.show('TV Añadida correctamente', 'success');
         } catch (e) {
             Toast.show(e.message, 'error');
         }

@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loadingDiv = document.getElementById('loading');
   const errorMsg = document.getElementById('error-msg');
   const noResultsDiv = document.getElementById('no-results');
-  // settingsBtn moved to KeyController
+  const settingsBtn = document.getElementById('settings-btn');
   const refreshBtn = document.getElementById('refresh-btn');
   const userWelcome = document.getElementById('user-welcome');
   const filesCount = document.getElementById('files-count');
@@ -102,6 +102,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Event Delegation for "Close Header Menu" is now inside CastController
+
+    // Global Header Actions
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        fetchFiles(currentApiKey);
+        // Always check Jackett status on explicit refresh, so indicators update
+        if (jackettController) jackettController.checkStatus();
+      });
+    }
+
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        if (keyController) keyController.showConfig();
+      });
+    }
 
   }
 
